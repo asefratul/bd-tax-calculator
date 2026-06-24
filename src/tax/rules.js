@@ -48,13 +48,16 @@ export const RULES = {
     { upTo: 40000000, rate: 0 }, // up to ৳4 crore
     { upTo: 100000000, rate: 0.1 }, // ৳4–10 crore
     { upTo: 200000000, rate: 0.2 }, // ৳10–20 crore
-    { upTo: 500000000, rate: 0.25 }, // ৳20–50 crore
+    { upTo: 500000000, rate: 0.3 }, // ৳20–50 crore (Paripatra 2025–26: 30%)
     { upTo: Infinity, rate: 0.35 }, // above ৳50 crore
   ],
 
-  // Filing-time adjustment by quarter (FY2026-27): early filing earns a rebate,
-  // late filing adds tax. Applied to the assessed tax.
-  // "lower"/"higher" picks between pct×tax and the fixed bound.
+  // Filing-time adjustment by quarter: early filing earns a rebate, late filing
+  // adds tax. Applied to the assessed tax. "lower"/"higher" picks between pct×tax
+  // and the fixed bound.
+  // NOTE: this is ILLUSTRATIVE and NOT a statutory NBR provision — the Paripatra
+  // 2025–26 has no quarterly filing rebate/fee. Real late filing incurs simple
+  // interest under §174. The UI flags it as non-statutory; keep that flag if kept.
   filing: {
     q1: { sign: -1, pct: 0.05, bound: 25000, mode: "lower" }, // Jul–Sep
     q2: { sign: 0, pct: 0, bound: 0, mode: "none" }, // Oct–Dec

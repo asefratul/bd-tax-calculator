@@ -202,6 +202,13 @@ describe("net-wealth surcharge", () => {
     expect(r.surchargeRate).toBe(0.1);
     expect(r.surcharge).toBeCloseTo(r.afterFloor * 0.1, 5);
   });
+
+  // Paripatra 2025–26 (AY 2026–27) tiers: 0 / 10 / 20 / 30 / 35%.
+  it("follows the Paripatra surcharge tiers", () => {
+    expect(compute({ taxableIncome: 700000, netWealth: 150000000 }).surchargeRate).toBe(0.2); // ৳10–20cr
+    expect(compute({ taxableIncome: 700000, netWealth: 300000000 }).surchargeRate).toBe(0.3); // ৳20–50cr
+    expect(compute({ taxableIncome: 700000, netWealth: 600000000 }).surchargeRate).toBe(0.35); // >৳50cr
+  });
 });
 
 describe("taxYearFor (1 July rollover)", () => {

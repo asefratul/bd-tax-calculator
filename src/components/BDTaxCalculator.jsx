@@ -237,35 +237,41 @@ export default function BDTaxCalculator() {
 
             <div className="mt-3">
               <MoneyField
-                label="Eligible investment"
+                label="Investment (for tax rebate)"
                 value={investment}
                 onChange={setInvestment}
                 hint="Rebate is 10% of this, but never more than 3% of taxable income."
               />
             </div>
 
-            <div className="mt-3">
+            <div className="mt-3 grid grid-cols-2 gap-3">
               <MoneyField
                 label="Tax already paid (AIT)"
                 value={ait}
                 onChange={setAit}
-                hint="Salary TDS during the year; refundable if it exceeds the tax."
+                hint="Salary TDS; refundable if it exceeds the tax."
               />
-            </div>
-
-            <div className="mt-3">
               <MoneyField
                 label="Other AIT"
                 value={otherAit}
                 onChange={setOtherAit}
-                hint="e.g. private-car advance tax (§153). Credited, but excess is non-refundable."
+                hint="e.g. car AIT (§153); excess not refundable."
               />
             </div>
 
             <div className="mt-3">
-              <span style={{ color: C.muted }} className="text-xs uppercase tracking-wide">
-                When you file
-              </span>
+              <div className="flex items-center gap-2">
+                <span style={{ color: C.muted }} className="text-xs uppercase tracking-wide">
+                  When you file
+                </span>
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ background: "#fbeeec", color: C.due }}
+                  title="Not part of the current NBR rules — shown for illustration only."
+                >
+                  Illustrative · not an NBR rule
+                </span>
+              </div>
               <div className="mt-1 grid grid-cols-2 gap-2">
                 {FILING_QUARTERS.map((q) => {
                   const on = filingQuarter === q.key;
@@ -291,7 +297,9 @@ export default function BDTaxCalculator() {
                 })}
               </div>
               <span style={{ color: C.muted }} className="mt-1 block text-xs">
-                Filing Jul–Sep earns a rebate; filing after December adds to the tax.
+                This early-filing rebate / late-filing fee is <strong>not in the current NBR rules</strong> —
+                shown for illustration only. Pick <strong>Oct–Dec</strong> to leave it out of your estimate.
+                (Actual late filing incurs simple interest under §174, not a flat percentage.)
               </span>
             </div>
 
