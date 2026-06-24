@@ -71,6 +71,12 @@ export function compute({
   let filingAdj = 0;
   if (fq.mode === "lower") filingAdj = fq.sign * Math.min(fq.pct * total, fq.bound);
   else if (fq.mode === "higher") filingAdj = fq.sign * Math.max(fq.pct * total, fq.bound);
+
+  // The minimum-tax floor is a hard floor: an early-filing rebate must not pull
+  // the tax below it once income exceeds the threshold. Trim the rebate to land
+  // exactly on the floor so the receipt stays internally consistent.
+  if (exceeds && total + filingAdj < floor) filingAdj = floor - total;
+
   const totalDue = total + filingAdj;
 
   const paid = ait || 0;

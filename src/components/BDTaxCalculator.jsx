@@ -12,8 +12,8 @@ export default function BDTaxCalculator() {
   const [category, setCategory] = useState("general");
   const [disabledChild, setDisabledChild] = useState(false);
   const [newTaxpayer, setNewTaxpayer] = useState(false);
-  const [investment, setInvestment] = useState(0);
-  const [ait, setAit] = useState(0);
+  const [investment, setInvestment] = useState("");
+  const [ait, setAit] = useState("");
   const [filingQuarter, setFilingQuarter] = useState("q2");
   const [advanced, setAdvanced] = useState(false);
   const [netWealth, setNetWealth] = useState(0);
@@ -36,19 +36,29 @@ export default function BDTaxCalculator() {
   const inc = Number(income) || 0;
   const segW = (amt) => (inc > 0 ? (amt / inc) * 100 : 0);
 
+  // Toggle to re-expose the net-wealth surcharge input. The surcharge stays
+  // computed (netWealth flows into compute); this only controls its visibility.
+  const showSurchargeUI = false;
+
   // Date-driven tax year (advances each 1 July).
   const ty = taxYearFor();
 
-  // Dev-time guard: if the displayed year has moved past the rates we encode, flag it.
+  // The displayed year advances automatically on 1 July; the encoded rates do not.
+  // When they diverge, the header is claiming a tax year the numbers don't cover.
+  const ratesStale = ty.ayStart !== RULES.ratesAssessmentYearStart;
+  const encodedAyLabel = `AY ${RULES.ratesAssessmentYearStart}–${String(
+    RULES.ratesAssessmentYearStart + 1
+  ).slice(-2)}`;
+
+  // Dev-time guard mirrors the on-screen banner below.
   useEffect(() => {
-    if (import.meta.env?.DEV && ty.ayStart !== RULES.ratesAssessmentYearStart) {
+    if (import.meta.env?.DEV && ratesStale) {
       console.warn(
         `[TaxLagbe] Showing ${ty.ayLabel}, but rates in src/tax/rules.js encode ` +
-          `AY ${RULES.ratesAssessmentYearStart}–${String(RULES.ratesAssessmentYearStart + 1).slice(-2)}. ` +
-          `Update the constants for the new Finance Act.`
+          `${encodedAyLabel}. Update the constants for the new Finance Act.`
       );
     }
-  }, [ty.ayStart, ty.ayLabel]);
+  }, [ratesStale, ty.ayLabel, encodedAyLabel]);
 
   return (
     <div
@@ -74,6 +84,18 @@ export default function BDTaxCalculator() {
             </span>
           </p>
         </header>
+
+        {ratesStale && (
+          <div
+            role="alert"
+            className="mb-5 rounded-md px-4 py-3 text-sm"
+            style={{ background: "#fbeeec", border: `1px solid ${C.due}`, color: C.due }}
+          >
+            <strong>Rates may be out of date.</strong> The figures here encode {encodedAyLabel}, but
+            this period falls in {ty.ayLabel}. Verify against the current Finance Act before relying
+            on these numbers.
+          </div>
+        )}
 
         <div className="grid gap-5 md:grid-cols-2">
           {/* INPUTS */}
@@ -180,22 +202,28 @@ export default function BDTaxCalculator() {
               </span>
             </div>
 
-            <button
-              onClick={() => setAdvanced(!advanced)}
-              className="mt-4 text-sm"
-              style={{ color: C.accent }}
-            >
-              {advanced ? "− Hide" : "+ Add"} net-wealth surcharge
-            </button>
-            {advanced && (
-              <div className="mt-2">
-                <MoneyField
-                  label="Net wealth"
-                  value={netWealth}
-                  onChange={setNetWealth}
-                  hint="Surcharge on tax kicks in above ৳4 crore."
-                />
-              </div>
+            {/* Net-wealth surcharge UI is hidden for now. The surcharge logic stays
+                wired through compute(); flip showSurchargeUI to true to re-expose it. */}
+            {showSurchargeUI && (
+              <>
+                <button
+                  onClick={() => setAdvanced(!advanced)}
+                  className="mt-4 text-sm"
+                  style={{ color: C.accent }}
+                >
+                  {advanced ? "− Hide" : "+ Add"} net-wealth surcharge
+                </button>
+                {advanced && (
+                  <div className="mt-2">
+                    <MoneyField
+                      label="Net wealth"
+                      value={netWealth}
+                      onChange={setNetWealth}
+                      hint="Surcharge on tax kicks in above ৳4 crore."
+                    />
+                  </div>
+                )}
+              </>
             )}
           </section>
 
