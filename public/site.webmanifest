@@ -1,0 +1,14 @@
+{
+  "name": "TaxLagbe — Bangladesh Income Tax Calculator",
+  "short_name": "TaxLagbe",
+  "description": "Free Bangladesh income tax calculator for Assessment Year 2026–27.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef1ee",
+  "theme_color": "#006a4e",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "64x64", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

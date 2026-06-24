@@ -98,19 +98,28 @@ export default function BDTaxCalculator() {
       }}
     >
       <div className="mx-auto max-w-5xl">
-        <header className="mb-4">
-          <h1 className="text-3xl font-bold tracking-tight" style={{ color: C.accent }}>
-            TaxLagbe
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: C.ink }}>
-            Bangladesh income tax, calculated in seconds.
-          </p>
-          <p style={{ color: C.muted }} className="mt-0.5 text-xs">
-            For income earned {ty.earnedRange}
-            <span className="ml-2 opacity-70" title={`Assessment Year ${ty.ayStart}–${String(ty.ayEnd).slice(-2)}`}>
-              · {ty.ayLabel}
-            </span>
-          </p>
+        <header className="mb-4 flex items-center gap-3">
+          <img
+            src="/logo.png"
+            alt="TaxLagbe logo"
+            width="48"
+            height="48"
+            className="h-12 w-12 shrink-0 rounded-xl"
+          />
+          <div>
+            <h1 className="text-3xl font-bold leading-none tracking-tight" style={{ color: C.accent }}>
+              TaxLagbe
+            </h1>
+            <p className="mt-1 text-sm" style={{ color: C.ink }}>
+              Bangladesh income tax, calculated in seconds.
+            </p>
+            <p style={{ color: C.muted }} className="mt-0.5 text-xs">
+              For income earned {ty.earnedRange}
+              <span className="ml-2 opacity-70" title={`Assessment Year ${ty.ayStart}–${String(ty.ayEnd).slice(-2)}`}>
+                · {ty.ayLabel}
+              </span>
+            </p>
+          </div>
         </header>
 
         {ratesStale && (
