@@ -55,6 +55,14 @@ describe("minimum tax floor", () => {
     const r = compute({ taxableIncome: 380000, newTaxpayer: true });
     expect(r.total).toBe(1000);
   });
+
+  it("does not let the early-filing rebate pull tax below the floor", () => {
+    // 380k → 500 gross, floored to 5,000. A Q1 5% rebate (−250) must not breach it.
+    const r = compute({ taxableIncome: 380000, filingQuarter: "q1" });
+    expect(r.total).toBe(5000);
+    expect(r.totalDue).toBe(5000);
+    expect(r.filingAdj).toBe(0);
+  });
 });
 
 describe("filing-quarter adjustment", () => {
