@@ -47,6 +47,10 @@ src/
    taxes the remainder. The exemption and the resolved taxable income are shown in the
    statement. This exemption applies to **employment income only**; if your income is
    from other sources, use the Taxable income basis.
+0b. **Other income** — non-salary income (house-property rent, interest, dividends, etc.)
+   is aggregated into total income and taxed at the same slab rates. Enter the *net
+   taxable* amount (rent after the repair allowance, exempt interest excluded). The
+   employment exemption does **not** apply to it.
 1. **Slabs** — income above the category threshold is taxed at 10 / 15 / 20 / 25 / 30%.
 2. **Investment rebate (Section 78)** — the *lowest* of: 3% of taxable income,
    10% of actual investment, and the ৳7.5 lakh ceiling; then capped at gross tax.
@@ -56,6 +60,9 @@ src/
 5. **Filing-quarter adjustment** — early filing (Jul–Sep) earns a rebate; late filing
    (Jan–Jun) adds to the tax.
 6. **AIT** — advance tax already deducted is credited, yielding a net payable or refund.
+   Salary TDS (*Tax already paid*) is fully refundable. **Other AIT** (e.g. private-car
+   advance tax under §153) is credited too, but is *non-refundable*: it can offset the
+   liability to zero and any excess is forfeited, not paid back.
 
 ## Maintaining the rules
 

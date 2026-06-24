@@ -4,7 +4,7 @@ export default function Toggle({ label, sub, checked, onChange }) {
   return (
     <button
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2.5 text-left"
+      className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left"
       style={{
         border: `1px solid ${checked ? C.accent : C.line}`,
         background: checked ? "#f0f7f3" : "#fbfcfb",
