@@ -6,11 +6,23 @@ import { taka } from "../tax/format.js";
 import MoneyField from "./MoneyField.jsx";
 import Toggle from "./Toggle.jsx";
 import ReceiptRow from "./ReceiptRow.jsx";
+import SlabSchedule from "./SlabSchedule.jsx";
 
 const INCOME_MODES = [
   { key: "taxable", label: "Taxable income" },
   { key: "gross", label: "Gross salary" },
 ];
+
+// Short, color-coded hint for a filing quarter, derived from RULES.filing.
+// Negative sign = early-filing rebate (green); positive = late-filing fine (red).
+function filingHint(key) {
+  const f = RULES.filing[key];
+  if (!f || f.sign === 0) return { text: "no change", color: C.muted };
+  const pct = `${(f.pct * 100).toFixed(0)}%`;
+  return f.sign < 0
+    ? { text: `−${pct} rebate`, color: C.accent }
+    : { text: `+${pct} fine`, color: C.due };
+}
 
 export default function BDTaxCalculator() {
   const [income, setIncome] = useState(900000);
@@ -18,8 +30,10 @@ export default function BDTaxCalculator() {
   const [category, setCategory] = useState("general");
   const [disabledChild, setDisabledChild] = useState(false);
   const [newTaxpayer, setNewTaxpayer] = useState(false);
+  const [otherIncome, setOtherIncome] = useState("");
   const [investment, setInvestment] = useState("");
   const [ait, setAit] = useState("");
+  const [otherAit, setOtherAit] = useState("");
   const [filingQuarter, setFilingQuarter] = useState("q2");
   const [advanced, setAdvanced] = useState(false);
   const [netWealth, setNetWealth] = useState(0);
@@ -32,19 +46,23 @@ export default function BDTaxCalculator() {
         incomeMode,
         grossSalary: incomeMode === "gross" ? incVal : 0,
         taxableIncome: incomeMode === "taxable" ? incVal : 0,
+        otherIncome: Number(otherIncome) || 0,
         category,
         disabledChild,
         newTaxpayer,
         investment: Number(investment) || 0,
         netWealth: Number(netWealth) || 0,
         ait: Number(ait) || 0,
+        otherAit: Number(otherAit) || 0,
         filingQuarter,
       }),
-    [incomeMode, incVal, category, disabledChild, newTaxpayer, investment, netWealth, ait, filingQuarter]
+    [incomeMode, incVal, otherIncome, category, disabledChild, newTaxpayer, investment, netWealth, ait, otherAit, filingQuarter]
   );
 
   // The slab bar visualises the resolved taxable income (post-exemption in gross mode).
   const segW = (amt) => (r.taxableIncome > 0 ? (amt / r.taxableIncome) * 100 : 0);
+
+  const categoryLabel = CATEGORIES.find((c) => c.key === category)?.label ?? "General";
 
   // Toggle to re-expose the net-wealth surcharge input. The surcharge stays
   // computed (netWealth flows into compute); this only controls its visibility.
@@ -72,7 +90,7 @@ export default function BDTaxCalculator() {
 
   return (
     <div
-      className="min-h-screen w-full px-4 py-8"
+      className="min-h-screen w-full px-4 py-5"
       style={{
         background: C.paper,
         color: C.ink,
@@ -80,7 +98,7 @@ export default function BDTaxCalculator() {
       }}
     >
       <div className="mx-auto max-w-5xl">
-        <header className="mb-6">
+        <header className="mb-4">
           <h1 className="text-3xl font-bold tracking-tight" style={{ color: C.accent }}>
             TaxLagbe
           </h1>
@@ -109,14 +127,14 @@ export default function BDTaxCalculator() {
 
         <div className="grid gap-5 md:grid-cols-2">
           {/* INPUTS */}
-          <section className="rounded-xl p-5" style={{ background: C.card, border: `1px solid ${C.line}` }}>
-            <h2 style={{ color: C.muted }} className="mb-4 text-xs font-semibold uppercase tracking-wide">
+          <section className="rounded-xl p-4" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+            <h2 style={{ color: C.muted }} className="mb-3 text-xs font-semibold uppercase tracking-wide">
               Your details
             </h2>
 
             <div className="mb-3">
               <span style={{ color: C.muted }} className="text-xs uppercase tracking-wide">
-                Income basis
+                Annual income basis
               </span>
               <div className="mt-1 grid grid-cols-2 gap-2">
                 {INCOME_MODES.map((m) => {
@@ -125,7 +143,7 @@ export default function BDTaxCalculator() {
                     <button
                       key={m.key}
                       onClick={() => setIncomeMode(m.key)}
-                      className="rounded-md px-3 py-2 text-sm transition-colors"
+                      className="rounded-md px-3 py-1.5 text-sm transition-colors"
                       style={{
                         border: `1px solid ${on ? C.accent : C.line}`,
                         background: on ? "#f0f7f3" : "#fbfcfb",
@@ -146,16 +164,25 @@ export default function BDTaxCalculator() {
               onChange={setIncome}
               hint={
                 incomeMode === "gross"
-                  ? `Total yearly salary before deductions; the employment exemption (1/3, up to ${taka(
+                  ? `Salary before deductions; the 1/3-or-${taka(
                       RULES.employmentExemption.cap
-                    )}) is applied automatically.`
-                  : `Total income after allowable exemptions (e.g. the salaried 1/3-or-${taka(
+                    )} exemption is applied automatically.`
+                  : `Income after allowable exemptions (e.g. the salaried 1/3-or-${taka(
                       RULES.employmentExemption.cap
                     )} exclusion).`
               }
             />
 
-            <div className="mt-4">
+            <div className="mt-3">
+              <MoneyField
+                label="Other income"
+                value={otherIncome}
+                onChange={setOtherIncome}
+                hint="Rent, interest, dividends — net taxable amount, taxed at slab rates."
+              />
+            </div>
+
+            <div className="mt-3">
               <span style={{ color: C.muted }} className="text-xs uppercase tracking-wide">
                 Taxpayer category
               </span>
@@ -166,7 +193,7 @@ export default function BDTaxCalculator() {
                     <button
                       key={c.key}
                       onClick={() => setCategory(c.key)}
-                      className="rounded-md px-3 py-2 text-sm transition-colors"
+                      className="rounded-md px-3 py-1.5 text-sm transition-colors"
                       style={{
                         border: `1px solid ${on ? C.accent : C.line}`,
                         background: on ? "#f0f7f3" : "#fbfcfb",
@@ -184,7 +211,7 @@ export default function BDTaxCalculator() {
               </span>
             </div>
 
-            <div className="mt-4 space-y-2">
+            <div className="mt-3 space-y-1.5">
               <Toggle
                 label="Parent / guardian of a child with disability"
                 sub="+৳50,000 to the threshold (one parent only)"
@@ -199,7 +226,7 @@ export default function BDTaxCalculator() {
               />
             </div>
 
-            <div className="mt-4">
+            <div className="mt-3">
               <MoneyField
                 label="Eligible investment"
                 value={investment}
@@ -208,27 +235,37 @@ export default function BDTaxCalculator() {
               />
             </div>
 
-            <div className="mt-4">
+            <div className="mt-3">
               <MoneyField
                 label="Tax already paid (AIT)"
                 value={ait}
                 onChange={setAit}
-                hint="Advance income tax deducted at source from salary during the year."
+                hint="Salary TDS during the year; refundable if it exceeds the tax."
               />
             </div>
 
-            <div className="mt-4">
+            <div className="mt-3">
+              <MoneyField
+                label="Other AIT"
+                value={otherAit}
+                onChange={setOtherAit}
+                hint="e.g. private-car advance tax (§153). Credited, but excess is non-refundable."
+              />
+            </div>
+
+            <div className="mt-3">
               <span style={{ color: C.muted }} className="text-xs uppercase tracking-wide">
                 When you file
               </span>
               <div className="mt-1 grid grid-cols-2 gap-2">
                 {FILING_QUARTERS.map((q) => {
                   const on = filingQuarter === q.key;
+                  const hint = filingHint(q.key);
                   return (
                     <button
                       key={q.key}
                       onClick={() => setFilingQuarter(q.key)}
-                      className="rounded-md px-3 py-2 text-sm transition-colors"
+                      className="rounded-md px-3 py-1.5 text-sm transition-colors"
                       style={{
                         border: `1px solid ${on ? C.accent : C.line}`,
                         background: on ? "#f0f7f3" : "#fbfcfb",
@@ -236,7 +273,10 @@ export default function BDTaxCalculator() {
                         fontWeight: on ? 600 : 400,
                       }}
                     >
-                      {q.label}
+                      <span className="block">{q.label}</span>
+                      <span className="block text-xs" style={{ color: hint.color, fontWeight: 400 }}>
+                        {hint.text}
+                      </span>
                     </button>
                   );
                 })}
@@ -272,7 +312,7 @@ export default function BDTaxCalculator() {
           </section>
 
           {/* STATEMENT */}
-          <section className="rounded-xl p-5" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+          <section className="rounded-xl p-4" style={{ background: C.card, border: `1px solid ${C.line}` }}>
             <h2 style={{ color: C.muted }} className="mb-1 text-xs font-semibold uppercase tracking-wide">
               Estimated tax payable
             </h2>
@@ -302,25 +342,38 @@ export default function BDTaxCalculator() {
 
             {/* receipt */}
             <div className="mt-5">
-              {r.incomeMode === "gross" && (
+              {(r.incomeMode === "gross" || r.otherIncome > 0) && (
                 <div className="mb-2">
-                  <ReceiptRow label="Gross salary" value={incVal} />
-                  <ReceiptRow label="Employment exemption" value={r.exemption} color={C.accent} neg />
-                  <ReceiptRow label="Taxable income" value={r.taxableIncome} strong />
+                  {r.incomeMode === "gross" && (
+                    <>
+                      <ReceiptRow label="Gross salary" value={incVal} />
+                      <ReceiptRow label="Employment exemption" value={r.exemption} color={C.accent} neg />
+                      <ReceiptRow
+                        label={r.otherIncome > 0 ? "Salary (taxable)" : "Taxable income"}
+                        value={r.baseTaxable}
+                        strong={r.otherIncome === 0}
+                      />
+                    </>
+                  )}
+                  {r.incomeMode === "taxable" && r.otherIncome > 0 && (
+                    <ReceiptRow label="Taxable income (entered)" value={r.baseTaxable} />
+                  )}
+                  {r.otherIncome > 0 && (
+                    <>
+                      <ReceiptRow label="Other income" value={r.otherIncome} />
+                      <ReceiptRow label="Total taxable income" value={r.taxableIncome} strong />
+                    </>
+                  )}
                 </div>
               )}
-              <ReceiptRow label={`Tax-free (${taka(r.threshold)})`} value={r.taxFreePortion} color={C.muted} />
-              {r.breakdown.map((b, i) => (
-                <ReceiptRow key={i} label={`${(b.rate * 100).toFixed(0)}% on ${taka(b.amount)}`} value={b.tax} />
-              ))}
-              {r.breakdown.length === 0 && (
-                <div style={{ color: C.muted }} className="py-2 text-sm">
-                  Income is within the tax-free threshold.
-                </div>
-              )}
+              <SlabSchedule
+                categoryLabel={categoryLabel}
+                threshold={r.threshold}
+                taxableIncome={r.taxableIncome}
+                grossTax={r.grossTax}
+              />
 
               <div className="mt-2">
-                <ReceiptRow label="Gross tax" value={r.grossTax} strong />
                 {r.rebate > 0 && <ReceiptRow label="Investment rebate" value={r.rebate} color={C.accent} neg />}
                 {r.minApplied && <ReceiptRow label="Minimum tax floor applied" value={r.floor} color={C.due} />}
                 {r.surcharge > 0 && (
@@ -364,7 +417,16 @@ export default function BDTaxCalculator() {
               {r.paid > 0 && (
                 <>
                   <div className="mt-3">
-                    <ReceiptRow label="Tax already paid (AIT)" value={r.paid} color={C.accent} neg />
+                    {r.nonRefundableAit > 0 ? (
+                      <>
+                        {r.refundableAit > 0 && (
+                          <ReceiptRow label="Tax already paid (AIT)" value={r.refundableAit} color={C.accent} neg />
+                        )}
+                        <ReceiptRow label="Other AIT (non-refundable)" value={r.nonRefundableAit} color={C.accent} neg />
+                      </>
+                    ) : (
+                      <ReceiptRow label="Tax already paid (AIT)" value={r.paid} color={C.accent} neg />
+                    )}
                   </div>
                   <div
                     className="mt-3 flex items-baseline justify-between rounded-md px-3 py-3"
@@ -383,6 +445,12 @@ export default function BDTaxCalculator() {
                       {taka(Math.abs(r.net))}
                     </span>
                   </div>
+                  {r.forfeited > 0 && (
+                    <p style={{ color: C.muted }} className="mt-2 text-xs">
+                      {taka(r.forfeited)} of the Other AIT exceeds the tax and is not refundable
+                      (Section 153).
+                    </p>
+                  )}
                 </>
               )}
 

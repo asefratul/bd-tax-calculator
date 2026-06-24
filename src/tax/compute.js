@@ -1,6 +1,27 @@
 import { RULES } from "./rules.js";
 
 /**
+ * Build the full slab ladder for a given threshold, including bands the income
+ * does not reach (those get amount/tax = 0). Pure — for display and testing.
+ *
+ * @param {number} threshold     Tax-free threshold in effect (category + bonuses).
+ * @param {number} taxableIncome Resolved taxable income.
+ * @returns {Array<{start:number,end:number,width:number,rate:number,amount:number,tax:number}>}
+ */
+export function buildSlabBands(threshold, taxableIncome = 0) {
+  const bands = [];
+  let start = threshold;
+  for (const { width, rate } of RULES.slabs) {
+    const end = width === Infinity ? Infinity : start + width;
+    const amount = Math.max(Math.min(taxableIncome, end) - start, 0);
+    bands.push({ start, end, width, rate, amount, tax: amount * rate });
+    if (end === Infinity) break;
+    start = end;
+  }
+  return bands;
+}
+
+/**
  * Compute Bangladesh individual income tax for AY 2026–27.
  * Pure function — no UI concerns — so it is easy to unit test.
  *
@@ -8,35 +29,45 @@ import { RULES } from "./rules.js";
  * @param {string} input.incomeMode     "gross" | "taxable" (default "taxable").
  * @param {number} input.grossSalary    Annual gross employment income (used when incomeMode="gross").
  * @param {number} input.taxableIncome  Annual income after allowable exemptions (used when incomeMode="taxable").
+ * @param {number} input.otherIncome    Net taxable non-salary income (rent, interest, dividends, etc.);
+ *                                       added to the taxable base and taxed at the same slab rates.
  * @param {string} input.category       Key into RULES.thresholds (default "general").
  * @param {boolean} input.disabledChild Parent/guardian of a child with disability (+threshold bonus).
  * @param {boolean} input.newTaxpayer   First-time taxpayer (lower minimum-tax floor).
  * @param {number} input.investment     Eligible investment amount (drives the rebate).
  * @param {number} input.netWealth      Net wealth (drives the surcharge).
- * @param {number} input.ait            Advance income tax already paid (TDS).
+ * @param {number} input.ait            Refundable advance tax / salary TDS — fully creditable & refundable.
+ * @param {number} input.otherAit       Non-refundable advance tax (e.g. private-car AIT, §153): offsets
+ *                                       the liability to zero but any excess is forfeited, not refunded.
  * @param {string} input.filingQuarter  Key into RULES.filing (default "q2").
  */
 export function compute({
   incomeMode = "taxable",
   grossSalary = 0,
   taxableIncome = 0,
+  otherIncome = 0,
   category = "general",
   disabledChild = false,
   newTaxpayer = false,
   investment = 0,
   netWealth = 0,
   ait = 0,
+  otherAit = 0,
   filingQuarter = "q2",
 } = {}) {
-  // In "gross" mode, derive taxable income by applying the salaried employment
-  // exemption (lower of a fixed fraction of gross salary and the statutory cap).
-  // In "taxable" mode, the income is taken as already net of exemptions.
+  // In "gross" mode, derive the salary taxable amount by applying the salaried
+  // employment exemption (lower of a fixed fraction of gross salary and the cap).
+  // In "taxable" mode, the entered figure is taken as already net of exemptions.
   const { fraction, cap } = RULES.employmentExemption;
   const exemption =
     incomeMode === "gross" ? Math.min((grossSalary || 0) * fraction, cap) : 0;
-  if (incomeMode === "gross") {
-    taxableIncome = Math.max((grossSalary || 0) - exemption, 0);
-  }
+  const baseTaxable =
+    incomeMode === "gross" ? Math.max((grossSalary || 0) - exemption, 0) : taxableIncome || 0;
+
+  // Non-salary income (rent, interest, dividends, …) is aggregated into total
+  // income and taxed at the same slab rates. Enter the net taxable amount.
+  const otherInc = otherIncome || 0;
+  taxableIncome = baseTaxable + otherInc;
 
   const base = RULES.thresholds[category] ?? RULES.thresholds.general;
   const threshold = base + (disabledChild ? RULES.disabledChildBonus : 0);
@@ -93,11 +124,23 @@ export function compute({
 
   const totalDue = total + filingAdj;
 
-  const paid = ait || 0;
-  const net = totalDue - paid; // positive = still owe; negative = refund
+  // Credits. Non-refundable advance tax (e.g. private-car AIT, §153) is applied
+  // first: it can wipe out the liability but any excess is forfeited, not paid
+  // back. Refundable AIT (salary TDS) is applied next and may yield a refund.
+  const refundableAit = ait || 0;
+  const nonRefundableAit = otherAit || 0;
+  const paid = refundableAit + nonRefundableAit;
+  const afterNonRefundable = Math.max(totalDue - nonRefundableAit, 0);
+  const forfeited = Math.max(nonRefundableAit - totalDue, 0); // excess non-refundable lost
+  const net = afterNonRefundable - refundableAit; // positive = still owe; negative = refund
 
   return {
     incomeMode,
+    baseTaxable,
+    otherIncome: otherInc,
+    refundableAit,
+    nonRefundableAit,
+    forfeited,
     exemption,
     taxableIncome,
     threshold,

@@ -1,6 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { compute } from "./compute.js";
+import { compute, buildSlabBands } from "./compute.js";
 import { taxYearFor } from "./rules.js";
+
+describe("buildSlabBands", () => {
+  it("returns all five bands with absolute ranges from the threshold", () => {
+    const bands = buildSlabBands(375000, 0);
+    expect(bands).toHaveLength(5);
+    expect(bands[0]).toMatchObject({ start: 375000, end: 675000, rate: 0.1 });
+    expect(bands[1]).toMatchObject({ start: 675000, end: 1075000, rate: 0.15 });
+    expect(bands[4].end).toBe(Infinity);
+    expect(bands.every((b) => b.amount === 0 && b.tax === 0)).toBe(true);
+  });
+
+  it("fills only the bands the income reaches, matching compute's gross tax", () => {
+    const bands = buildSlabBands(375000, 700000); // 325k above threshold
+    expect(bands[0]).toMatchObject({ amount: 300000, tax: 30000 }); // full first band
+    expect(bands[1]).toMatchObject({ amount: 25000, tax: 3750 }); // partial second
+    expect(bands[2].amount).toBe(0); // not reached
+    const sum = bands.reduce((t, b) => t + b.tax, 0);
+    expect(sum).toBe(compute({ taxableIncome: 700000 }).grossTax);
+  });
+});
 
 describe("slabs & threshold", () => {
   it("charges nothing within the tax-free threshold", () => {
@@ -120,6 +140,41 @@ describe("filing-quarter adjustment", () => {
   it("Q4 adds the higher of 5% or ৳5,000", () => {
     const r = compute({ taxableIncome: income, filingQuarter: "q4" });
     expect(r.filingAdj).toBe(5000); // 5% of 90,000 = 4,500 < 5,000
+  });
+});
+
+describe("other (non-salary) income", () => {
+  it("adds other income to the taxable base and taxes it at slab rates", () => {
+    const r = compute({ taxableIncome: 700000, otherIncome: 200000 });
+    expect(r.baseTaxable).toBe(700000);
+    expect(r.otherIncome).toBe(200000);
+    expect(r.taxableIncome).toBe(900000);
+    // 900k → 525k above threshold: 300k@10% + 225k@15% = 63,750
+    expect(r.grossTax).toBe(63750);
+  });
+
+  it("adds other income on top of the post-exemption salary in gross mode", () => {
+    const r = compute({ incomeMode: "gross", grossSalary: 900000, otherIncome: 100000 });
+    expect(r.baseTaxable).toBe(600000); // 900k − 300k exemption
+    expect(r.taxableIncome).toBe(700000); // + 100k other
+    expect(r.grossTax).toBe(33750);
+  });
+});
+
+describe("non-refundable other AIT (e.g. car AIT)", () => {
+  it("offsets the liability but is not refunded when it exceeds it", () => {
+    const r = compute({ taxableIncome: 700000, otherAit: 40000 }); // due 33,750
+    expect(r.refund).toBe(false);
+    expect(r.net).toBe(0); // wiped to zero, not negative
+    expect(r.forfeited).toBe(6250); // 40,000 − 33,750 lost
+  });
+
+  it("combines with refundable salary AIT, which can still produce a refund", () => {
+    const r = compute({ taxableIncome: 700000, ait: 10000, otherAit: 30000 });
+    // 33,750 − 30,000 (non-refundable) = 3,750 remaining; − 10,000 salary AIT = −6,250
+    expect(r.refund).toBe(true);
+    expect(r.net).toBe(-6250);
+    expect(r.forfeited).toBe(0);
   });
 });
 
