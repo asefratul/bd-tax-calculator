@@ -7,8 +7,14 @@ import MoneyField from "./MoneyField.jsx";
 import Toggle from "./Toggle.jsx";
 import ReceiptRow from "./ReceiptRow.jsx";
 
+const INCOME_MODES = [
+  { key: "taxable", label: "Taxable income" },
+  { key: "gross", label: "Gross salary" },
+];
+
 export default function BDTaxCalculator() {
   const [income, setIncome] = useState(900000);
+  const [incomeMode, setIncomeMode] = useState("taxable");
   const [category, setCategory] = useState("general");
   const [disabledChild, setDisabledChild] = useState(false);
   const [newTaxpayer, setNewTaxpayer] = useState(false);
@@ -18,10 +24,14 @@ export default function BDTaxCalculator() {
   const [advanced, setAdvanced] = useState(false);
   const [netWealth, setNetWealth] = useState(0);
 
+  const incVal = Number(income) || 0;
+
   const r = useMemo(
     () =>
       compute({
-        taxableIncome: Number(income) || 0,
+        incomeMode,
+        grossSalary: incomeMode === "gross" ? incVal : 0,
+        taxableIncome: incomeMode === "taxable" ? incVal : 0,
         category,
         disabledChild,
         newTaxpayer,
@@ -30,11 +40,11 @@ export default function BDTaxCalculator() {
         ait: Number(ait) || 0,
         filingQuarter,
       }),
-    [income, category, disabledChild, newTaxpayer, investment, netWealth, ait, filingQuarter]
+    [incomeMode, incVal, category, disabledChild, newTaxpayer, investment, netWealth, ait, filingQuarter]
   );
 
-  const inc = Number(income) || 0;
-  const segW = (amt) => (inc > 0 ? (amt / inc) * 100 : 0);
+  // The slab bar visualises the resolved taxable income (post-exemption in gross mode).
+  const segW = (amt) => (r.taxableIncome > 0 ? (amt / r.taxableIncome) * 100 : 0);
 
   // Toggle to re-expose the net-wealth surcharge input. The surcharge stays
   // computed (netWealth flows into compute); this only controls its visibility.
@@ -104,11 +114,45 @@ export default function BDTaxCalculator() {
               Your details
             </h2>
 
+            <div className="mb-3">
+              <span style={{ color: C.muted }} className="text-xs uppercase tracking-wide">
+                Income basis
+              </span>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                {INCOME_MODES.map((m) => {
+                  const on = incomeMode === m.key;
+                  return (
+                    <button
+                      key={m.key}
+                      onClick={() => setIncomeMode(m.key)}
+                      className="rounded-md px-3 py-2 text-sm transition-colors"
+                      style={{
+                        border: `1px solid ${on ? C.accent : C.line}`,
+                        background: on ? "#f0f7f3" : "#fbfcfb",
+                        color: on ? C.accent : C.ink,
+                        fontWeight: on ? 600 : 400,
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <MoneyField
-              label="Annual taxable income"
+              label={incomeMode === "gross" ? "Annual gross salary" : "Annual taxable income"}
               value={income}
               onChange={setIncome}
-              hint="Total income after allowable exemptions (e.g. the salaried 1/3-or-৳450,000 exclusion)."
+              hint={
+                incomeMode === "gross"
+                  ? `Total yearly salary before deductions; the employment exemption (1/3, up to ${taka(
+                      RULES.employmentExemption.cap
+                    )}) is applied automatically.`
+                  : `Total income after allowable exemptions (e.g. the salaried 1/3-or-${taka(
+                      RULES.employmentExemption.cap
+                    )} exclusion).`
+              }
             />
 
             <div className="mt-4">
@@ -258,6 +302,13 @@ export default function BDTaxCalculator() {
 
             {/* receipt */}
             <div className="mt-5">
+              {r.incomeMode === "gross" && (
+                <div className="mb-2">
+                  <ReceiptRow label="Gross salary" value={incVal} />
+                  <ReceiptRow label="Employment exemption" value={r.exemption} color={C.accent} neg />
+                  <ReceiptRow label="Taxable income" value={r.taxableIncome} strong />
+                </div>
+              )}
               <ReceiptRow label={`Tax-free (${taka(r.threshold)})`} value={r.taxFreePortion} color={C.muted} />
               {r.breakdown.map((b, i) => (
                 <ReceiptRow key={i} label={`${(b.rate * 100).toFixed(0)}% on ${taka(b.amount)}`} value={b.tax} />

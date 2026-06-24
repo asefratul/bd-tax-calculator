@@ -5,7 +5,9 @@ import { RULES } from "./rules.js";
  * Pure function — no UI concerns — so it is easy to unit test.
  *
  * @param {Object} input
- * @param {number} input.taxableIncome  Annual income after allowable exemptions.
+ * @param {string} input.incomeMode     "gross" | "taxable" (default "taxable").
+ * @param {number} input.grossSalary    Annual gross employment income (used when incomeMode="gross").
+ * @param {number} input.taxableIncome  Annual income after allowable exemptions (used when incomeMode="taxable").
  * @param {string} input.category       Key into RULES.thresholds (default "general").
  * @param {boolean} input.disabledChild Parent/guardian of a child with disability (+threshold bonus).
  * @param {boolean} input.newTaxpayer   First-time taxpayer (lower minimum-tax floor).
@@ -15,6 +17,8 @@ import { RULES } from "./rules.js";
  * @param {string} input.filingQuarter  Key into RULES.filing (default "q2").
  */
 export function compute({
+  incomeMode = "taxable",
+  grossSalary = 0,
   taxableIncome = 0,
   category = "general",
   disabledChild = false,
@@ -24,6 +28,16 @@ export function compute({
   ait = 0,
   filingQuarter = "q2",
 } = {}) {
+  // In "gross" mode, derive taxable income by applying the salaried employment
+  // exemption (lower of a fixed fraction of gross salary and the statutory cap).
+  // In "taxable" mode, the income is taken as already net of exemptions.
+  const { fraction, cap } = RULES.employmentExemption;
+  const exemption =
+    incomeMode === "gross" ? Math.min((grossSalary || 0) * fraction, cap) : 0;
+  if (incomeMode === "gross") {
+    taxableIncome = Math.max((grossSalary || 0) - exemption, 0);
+  }
+
   const base = RULES.thresholds[category] ?? RULES.thresholds.general;
   const threshold = base + (disabledChild ? RULES.disabledChildBonus : 0);
 
@@ -83,6 +97,9 @@ export function compute({
   const net = totalDue - paid; // positive = still owe; negative = refund
 
   return {
+    incomeMode,
+    exemption,
+    taxableIncome,
     threshold,
     taxFreePortion: Math.min(taxableIncome, threshold),
     breakdown,

@@ -27,6 +27,35 @@ describe("slabs & threshold", () => {
   });
 });
 
+describe("gross-salary mode (employment exemption)", () => {
+  it("exemption is fraction-bound when 1/3 of salary is below the cap", () => {
+    const r = compute({ incomeMode: "gross", grossSalary: 900000 });
+    expect(r.exemption).toBe(300000); // 1/3 of 900,000 < 500,000 cap
+    expect(r.taxableIncome).toBe(600000);
+  });
+
+  it("exemption is capped when 1/3 of salary exceeds the cap", () => {
+    const r = compute({ incomeMode: "gross", grossSalary: 1800000 });
+    expect(r.exemption).toBe(500000); // 1/3 = 600,000, capped at 500,000
+    expect(r.taxableIncome).toBe(1300000);
+  });
+
+  it("derives taxable income and tax end to end from gross salary", () => {
+    const r = compute({ incomeMode: "gross", grossSalary: 900000 });
+    // taxable 600,000 → 225,000 above the 375,000 threshold @10% = 22,500
+    expect(r.taxableIncome).toBe(600000);
+    expect(r.grossTax).toBe(22500);
+  });
+
+  it("leaves taxable mode unchanged (no exemption applied)", () => {
+    const r = compute({ taxableIncome: 700000 });
+    expect(r.incomeMode).toBe("taxable");
+    expect(r.exemption).toBe(0);
+    expect(r.taxableIncome).toBe(700000);
+    expect(r.grossTax).toBe(33750); // identical to the slab test
+  });
+});
+
 describe("investment rebate (lowest of three)", () => {
   it("is bound by 3% of income when investment is large", () => {
     const r = compute({ taxableIncome: 1200000, investment: 500000 });

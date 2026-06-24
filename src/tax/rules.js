@@ -21,6 +21,13 @@ export const RULES = {
   },
   disabledChildBonus: 50000, // added to threshold; one parent/guardian only
 
+  // Salaried employment-income exemption: the LOWER of (fraction × employment
+  // income) and the cap. AY 2026–27 raised the cap to ৳5,00,000 (from ৳4,50,000)
+  // via the Finance Ordinance 2025.
+  // Source: Rahman Rahman Huq / KPMG, "Salient features of Finance Ordinance 2025";
+  // corroborated by rashelslawdesk.com (2025–26). Verify against the gazetted act.
+  employmentExemption: { fraction: 1 / 3, cap: 500000 },
+
   // Progressive slabs applied to income ABOVE the threshold
   slabs: [
     { width: 300000, rate: 0.1 },

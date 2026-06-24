@@ -40,6 +40,13 @@ src/
 
 ## How the tax is calculated
 
+0. **Income basis** — an *Income basis* toggle lets you enter either **Taxable income**
+   (already net of exemptions, the default) or **Gross salary**. In gross mode the
+   calculator first applies the **salaried employment exemption** — the *lower* of
+   one-third of gross salary and the ৳5,00,000 cap (`RULES.employmentExemption`) — and
+   taxes the remainder. The exemption and the resolved taxable income are shown in the
+   statement. This exemption applies to **employment income only**; if your income is
+   from other sources, use the Taxable income basis.
 1. **Slabs** — income above the category threshold is taxed at 10 / 15 / 20 / 25 / 30%.
 2. **Investment rebate (Section 78)** — the *lowest* of: 3% of taxable income,
    10% of actual investment, and the ৳7.5 lakh ceiling; then capped at gross tax.
