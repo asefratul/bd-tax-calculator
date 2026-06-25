@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { compute } from "../tax/compute.js";
+import { trackEvent, incomeBand } from "../analytics.js";
 import { RULES, FILING_QUARTERS, CATEGORIES, taxYearFor } from "../tax/rules.js";
 import { C, SLAB_COLORS, FREE_COLOR } from "../tax/theme.js";
 import { taka } from "../tax/format.js";
@@ -63,6 +64,21 @@ export default function BDTaxCalculator() {
   const segW = (amt) => (r.taxableIncome > 0 ? (amt / r.taxableIncome) * 100 : 0);
 
   const categoryLabel = CATEGORIES.find((c) => c.key === category)?.label ?? "General";
+
+  // Privacy-safe "calculated" signal: fires (debounced) when the visitor changes
+  // their income basis or amount — sends only a coarse band, never the raw figure.
+  const firstCalc = useRef(true);
+  useEffect(() => {
+    if (firstCalc.current) {
+      firstCalc.current = false;
+      return;
+    }
+    const id = setTimeout(
+      () => trackEvent("calculated", { mode: incomeMode, band: incomeBand(r.taxableIncome) }),
+      1500
+    );
+    return () => clearTimeout(id);
+  }, [incomeMode, r.taxableIncome]);
 
   // Toggle to re-expose the net-wealth surcharge input. The surcharge stays
   // computed (netWealth flows into compute); this only controls its visibility.
@@ -151,7 +167,10 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={m.key}
-                      onClick={() => setIncomeMode(m.key)}
+                      onClick={() => {
+                        setIncomeMode(m.key);
+                        trackEvent("income_mode", { mode: m.key });
+                      }}
                       className="rounded-md px-3 py-1.5 text-sm transition-colors"
                       style={{
                         border: `1px solid ${on ? C.accent : C.line}`,
@@ -201,7 +220,10 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={c.key}
-                      onClick={() => setCategory(c.key)}
+                      onClick={() => {
+                        setCategory(c.key);
+                        trackEvent("taxpayer_category", { category: c.key });
+                      }}
                       className="rounded-md px-3 py-1.5 text-sm transition-colors"
                       style={{
                         border: `1px solid ${on ? C.accent : C.line}`,
@@ -225,13 +247,19 @@ export default function BDTaxCalculator() {
                 label="Parent / guardian of a child with disability"
                 sub="+৳50,000 to the threshold (one parent only)"
                 checked={disabledChild}
-                onChange={setDisabledChild}
+                onChange={(v) => {
+                  setDisabledChild(v);
+                  trackEvent("toggle", { name: "disabled_child", on: v });
+                }}
               />
               <Toggle
                 label="First-time taxpayer"
                 sub="Minimum tax floor of ৳1,000 instead of ৳5,000"
                 checked={newTaxpayer}
-                onChange={setNewTaxpayer}
+                onChange={(v) => {
+                  setNewTaxpayer(v);
+                  trackEvent("toggle", { name: "first_time_taxpayer", on: v });
+                }}
               />
             </div>
 
@@ -279,7 +307,10 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={q.key}
-                      onClick={() => setFilingQuarter(q.key)}
+                      onClick={() => {
+                        setFilingQuarter(q.key);
+                        trackEvent("filing_quarter", { quarter: q.key });
+                      }}
                       className="rounded-md px-3 py-1.5 text-sm transition-colors"
                       style={{
                         border: `1px solid ${on ? C.accent : C.line}`,
