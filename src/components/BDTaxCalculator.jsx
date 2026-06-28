@@ -8,6 +8,7 @@ import MoneyField from "./MoneyField.jsx";
 import Toggle from "./Toggle.jsx";
 import ReceiptRow from "./ReceiptRow.jsx";
 import SlabSchedule from "./SlabSchedule.jsx";
+import HowItWorks from "./HowItWorks.jsx";
 
 const INCOME_MODES = [
   { key: "taxable", label: "Taxable income" },
@@ -167,6 +168,7 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={m.key}
+                      aria-pressed={on}
                       onClick={() => {
                         setIncomeMode(m.key);
                         trackEvent("income_mode", { mode: m.key });
@@ -220,6 +222,7 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={c.key}
+                      aria-pressed={on}
                       onClick={() => {
                         setCategory(c.key);
                         trackEvent("taxpayer_category", { category: c.key });
@@ -307,6 +310,7 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={q.key}
+                      aria-pressed={on}
                       onClick={() => {
                         setFilingQuarter(q.key);
                         trackEvent("filing_quarter", { quarter: q.key });
@@ -504,13 +508,15 @@ export default function BDTaxCalculator() {
 
               {r.minApplied && (
                 <p style={{ color: C.muted }} className="mt-2 text-xs">
-                  Slab tax came to {taka(r.afterRebate)}; since income exceeds the threshold, the{" "}
-                  {taka(r.floor)} minimum applies.
+                  Tax after rebate came to {taka(r.afterRebate)}; since income exceeds the threshold,
+                  the {taka(r.floor)} minimum applies.
                 </p>
               )}
             </div>
           </section>
         </div>
+
+        <HowItWorks />
 
         <footer style={{ color: C.muted }} className="mx-auto mt-6 max-w-5xl text-xs leading-relaxed">
           Estimate based on the FY2026–27 budget. Figures are proposed until the Finance Act 2026 is gazetted —
