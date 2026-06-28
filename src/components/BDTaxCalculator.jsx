@@ -1,7 +1,15 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { compute } from "../tax/compute.js";
 import { trackEvent, incomeBand } from "../analytics.js";
-import { RULES, FILING_QUARTERS, CATEGORIES, taxYearFor } from "../tax/rules.js";
+import {
+  RULES,
+  RULES_BY_YEAR,
+  ASSESSMENT_YEARS,
+  LATEST_RATES_YEAR,
+  FILING_QUARTERS,
+  CATEGORIES,
+  taxYearFor,
+} from "../tax/rules.js";
 import { C, SLAB_COLORS, FREE_COLOR } from "../tax/theme.js";
 import { taka } from "../tax/format.js";
 import MoneyField from "./MoneyField.jsx";
@@ -39,26 +47,38 @@ export default function BDTaxCalculator() {
   const [filingQuarter, setFilingQuarter] = useState("q2");
   const [advanced, setAdvanced] = useState(false);
   const [netWealth, setNetWealth] = useState(0);
+  const [ayStart, setAyStart] = useState(LATEST_RATES_YEAR);
 
   const incVal = Number(income) || 0;
 
-  const r = useMemo(
-    () =>
-      compute({
-        incomeMode,
-        grossSalary: incomeMode === "gross" ? incVal : 0,
-        taxableIncome: incomeMode === "taxable" ? incVal : 0,
-        otherIncome: Number(otherIncome) || 0,
-        category,
-        disabledChild,
-        newTaxpayer,
-        investment: Number(investment) || 0,
-        netWealth: Number(netWealth) || 0,
-        ait: Number(ait) || 0,
-        otherAit: Number(otherAit) || 0,
-        filingQuarter,
-      }),
+  // Selected assessment year drives the statement; the other year is computed
+  // alongside it for the comparison strip.
+  const selectedRules = RULES_BY_YEAR[ayStart];
+  const selectedYear = ASSESSMENT_YEARS.find((y) => y.ayStart === ayStart);
+  const compareYear = ASSESSMENT_YEARS.find((y) => y.ayStart !== ayStart);
+
+  const inputs = useMemo(
+    () => ({
+      incomeMode,
+      grossSalary: incomeMode === "gross" ? incVal : 0,
+      taxableIncome: incomeMode === "taxable" ? incVal : 0,
+      otherIncome: Number(otherIncome) || 0,
+      category,
+      disabledChild,
+      newTaxpayer,
+      investment: Number(investment) || 0,
+      netWealth: Number(netWealth) || 0,
+      ait: Number(ait) || 0,
+      otherAit: Number(otherAit) || 0,
+      filingQuarter,
+    }),
     [incomeMode, incVal, otherIncome, category, disabledChild, newTaxpayer, investment, netWealth, ait, otherAit, filingQuarter]
+  );
+
+  const r = useMemo(() => compute({ ...inputs, rules: selectedRules }), [inputs, selectedRules]);
+  const rCompare = useMemo(
+    () => compute({ ...inputs, rules: RULES_BY_YEAR[compareYear.ayStart] }),
+    [inputs, compareYear]
   );
 
   // The slab bar visualises the resolved taxable income (post-exemption in gross mode).
@@ -88,12 +108,13 @@ export default function BDTaxCalculator() {
   // Date-driven tax year (advances each 1 July).
   const ty = taxYearFor();
 
-  // The displayed year advances automatically on 1 July; the encoded rates do not.
-  // When they diverge, the header is claiming a tax year the numbers don't cover.
-  const ratesStale = ty.ayStart !== RULES.ratesAssessmentYearStart;
-  const encodedAyLabel = `AY ${RULES.ratesAssessmentYearStart}–${String(
-    RULES.ratesAssessmentYearStart + 1
-  ).slice(-2)}`;
+  // Date-driven year, used only to warn when the calendar has moved past the
+  // latest rate set we ship (i.e. the picker is missing the current year).
+  const ratesStale = ty.ayStart > LATEST_RATES_YEAR;
+  const encodedAyLabel = `AY ${LATEST_RATES_YEAR}–${String(LATEST_RATES_YEAR + 1).slice(-2)}`;
+
+  // Header reflects the selected assessment year (income year is the year before).
+  const earnedRange = `Jul ${ayStart - 1} – Jun ${ayStart}`;
 
   // Dev-time guard mirrors the on-screen banner below.
   useEffect(() => {
@@ -131,9 +152,9 @@ export default function BDTaxCalculator() {
               Bangladesh income tax, calculated in seconds.
             </p>
             <p style={{ color: C.muted }} className="mt-0.5 text-xs">
-              For income earned {ty.earnedRange}
-              <span className="ml-2 opacity-70" title={`Assessment Year ${ty.ayStart}–${String(ty.ayEnd).slice(-2)}`}>
-                · {ty.ayLabel}
+              For income earned {earnedRange}
+              <span className="ml-2 opacity-70" title={`Assessment Year ${ayStart}–${String(ayStart + 1).slice(-2)}`}>
+                · {selectedYear.label}
               </span>
             </p>
           </div>
@@ -157,6 +178,36 @@ export default function BDTaxCalculator() {
             <h2 style={{ color: C.muted }} className="mb-3 text-xs font-semibold uppercase tracking-wide">
               Your details
             </h2>
+
+            <div className="mb-3">
+              <span style={{ color: C.muted }} className="text-xs uppercase tracking-wide">
+                Assessment year
+              </span>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                {ASSESSMENT_YEARS.map((yr) => {
+                  const on = ayStart === yr.ayStart;
+                  return (
+                    <button
+                      key={yr.ayStart}
+                      aria-pressed={on}
+                      onClick={() => {
+                        setAyStart(yr.ayStart);
+                        trackEvent("assessment_year", { ayStart: yr.ayStart });
+                      }}
+                      className="rounded-md px-3 py-1.5 text-sm transition-colors"
+                      style={{
+                        border: `1px solid ${on ? C.accent : C.line}`,
+                        background: on ? "#f0f7f3" : "#fbfcfb",
+                        color: on ? C.accent : C.ink,
+                        fontWeight: on ? 600 : 400,
+                      }}
+                    >
+                      {yr.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="mb-3">
               <span style={{ color: C.muted }} className="text-xs uppercase tracking-wide">
@@ -195,10 +246,10 @@ export default function BDTaxCalculator() {
               hint={
                 incomeMode === "gross"
                   ? `Salary before deductions; the 1/3-or-${taka(
-                      RULES.employmentExemption.cap
+                      selectedRules.employmentExemption.cap
                     )} exemption is applied automatically.`
                   : `Income after allowable exemptions (e.g. the salaried 1/3-or-${taka(
-                      RULES.employmentExemption.cap
+                      selectedRules.employmentExemption.cap
                     )} exclusion).`
               }
             />
@@ -257,7 +308,13 @@ export default function BDTaxCalculator() {
               />
               <Toggle
                 label="First-time taxpayer"
-                sub="Minimum tax floor of ৳1,000 instead of ৳5,000"
+                sub={
+                  selectedRules.minTax.newTaxpayer < selectedRules.minTax.regular
+                    ? `Minimum tax floor of ${taka(selectedRules.minTax.newTaxpayer)} instead of ${taka(
+                        selectedRules.minTax.regular
+                      )}`
+                    : "No reduced minimum-tax floor this year"
+                }
                 checked={newTaxpayer}
                 onChange={(v) => {
                   setNewTaxpayer(v);
@@ -380,6 +437,26 @@ export default function BDTaxCalculator() {
               </div>
             </div>
 
+            {(() => {
+              const diff = Math.round(r.totalDue - rCompare.totalDue);
+              const up = diff > 0;
+              return (
+                <div style={{ color: C.muted }} className="mt-1.5 text-xs">
+                  vs {compareYear.label}:{" "}
+                  <span className="font-mono" style={{ color: C.ink }}>
+                    {taka(rCompare.totalDue)}
+                  </span>
+                  {diff === 0 ? (
+                    <span className="ml-1">· same</span>
+                  ) : (
+                    <span className="ml-1 font-semibold" style={{ color: up ? C.due : C.accent }}>
+                      {up ? "▲" : "▼"} {taka(Math.abs(diff))} {up ? "more" : "less"}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* stacked slab bar */}
             <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full" style={{ background: "#f0f2f0" }}>
               <div style={{ width: `${segW(r.taxFreePortion)}%`, background: FREE_COLOR }} title="Tax-free" />
@@ -423,6 +500,7 @@ export default function BDTaxCalculator() {
                 threshold={r.threshold}
                 taxableIncome={r.taxableIncome}
                 grossTax={r.grossTax}
+                slabs={selectedRules.slabs}
               />
 
               <div className="mt-2">
@@ -516,7 +594,7 @@ export default function BDTaxCalculator() {
           </section>
         </div>
 
-        <HowItWorks />
+        <HowItWorks rules={selectedRules} />
 
         <footer style={{ color: C.muted }} className="mx-auto mt-6 max-w-5xl text-xs leading-relaxed">
           Estimate based on the FY2026–27 budget. Figures are proposed until the Finance Act 2026 is gazetted —

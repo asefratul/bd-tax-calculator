@@ -1,6 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { compute, buildSlabBands } from "./compute.js";
-import { taxYearFor } from "./rules.js";
+import { taxYearFor, rulesForYear } from "./rules.js";
+
+describe("assessment-year rate sets", () => {
+  it("uses the AY 2025–26 slabs (5% band, ৳3,50,000 threshold) when passed", () => {
+    const r = compute({ taxableIncome: 700000, rules: rulesForYear(2025) });
+    // 700,000 − 350,000 threshold = 350,000 above: 100,000 @5% = 5,000 ;
+    // 250,000 @10% = 25,000 → 30,000.
+    expect(r.threshold).toBe(350000);
+    expect(r.grossTax).toBe(30000);
+  });
+
+  it("defaults to AY 2026–27 (no 5% band, ৳3,75,000 threshold)", () => {
+    const r = compute({ taxableIncome: 700000 });
+    expect(r.threshold).toBe(375000);
+    expect(r.grossTax).toBe(33750);
+  });
+});
 
 describe("buildSlabBands", () => {
   it("returns all five bands with absolute ranges from the threshold", () => {

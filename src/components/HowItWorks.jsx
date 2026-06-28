@@ -20,8 +20,8 @@ const Step = ({ n, title, children }) => (
  * Collapsible explainer of the calculation steps, with links to the NBR sources.
  * Uses a native <details> so it stays keyboard-accessible without extra JS.
  */
-export default function HowItWorks() {
-  const { employmentExemption: ex, rebate, minTax } = RULES;
+export default function HowItWorks({ rules = RULES }) {
+  const { employmentExemption: ex, rebate, minTax } = rules;
   const pct = (x) => `${Math.round(x * 100)}%`;
 
   return (

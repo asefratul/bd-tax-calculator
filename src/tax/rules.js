@@ -1,70 +1,21 @@
 /* ============================================================
-   TAX RULES — Assessment Year 2026–27 (Income Year 2025–26)
-   Based on the FY2026–27 national budget (presented 11 Jun 2026).
+   TAX RULES — Bangladesh individual income tax.
 
-   These figures are PROPOSED until the Finance Act 2026 is gazetted.
-   This file is the single source of truth — update the constants here
-   (not the logic in compute.js) when the final act / NBR circulars land.
+   Each assessment year is a self-contained rate set; compute()
+   takes one via its `rules` param (defaulting to the latest).
+   Numbers are from the NBR Income Tax Paripatra 2025–26
+   (AY 2026–27 in Section 1, AY 2025–26 in Section 2) and remain
+   PROPOSED until the Finance Act is gazetted. Edit the constants
+   here, not the logic in compute.js.
    ============================================================ */
-export const RULES = {
-  // The assessment year these rates ENCODE, as the AY's starting year (ayStart).
-  // 2026 → AY 2026–27. The on-screen year label is date-driven and advances each 1 July,
-  // but these numbers do NOT — bump this and the constants below when a new Finance Act lands.
-  ratesAssessmentYearStart: 2026,
 
-  // Tax-free threshold by taxpayer category (৳)
-  thresholds: {
-    general: 375000,
-    womenSenior: 425000, // women, and anyone aged 65+
-    disabledThirdGender: 500000, // persons with disability / third gender
-    freedomFighter: 525000, // war-wounded gazetted FF & gazetted "July Warriors 2024"
-  },
-  disabledChildBonus: 50000, // added to threshold; one parent/guardian only
-
-  // Salaried employment-income exemption: the LOWER of (fraction × employment
-  // income) and the cap. AY 2026–27 raised the cap to ৳5,00,000 (from ৳4,50,000)
-  // via the Finance Ordinance 2025.
-  // Source: Rahman Rahman Huq / KPMG, "Salient features of Finance Ordinance 2025";
-  // corroborated by rashelslawdesk.com (2025–26). Verify against the gazetted act.
-  employmentExemption: { fraction: 1 / 3, cap: 500000 },
-
-  // Progressive slabs applied to income ABOVE the threshold
-  slabs: [
-    { width: 300000, rate: 0.1 },
-    { width: 400000, rate: 0.15 },
-    { width: 500000, rate: 0.2 },
-    { width: 2000000, rate: 0.25 },
-    { width: Infinity, rate: 0.3 },
-  ],
-
-  minTax: { regular: 5000, newTaxpayer: 1000 },
-
-  // Investment rebate (Section 78). Rebate = LOWEST of:
-  //   incomeCapPct × taxable income, rate × actual investment, absoluteCap (ceiling on the rebate).
-  rebate: { rate: 0.1, incomeCapPct: 0.03, absoluteCap: 750000 },
-
-  // Net-wealth surcharge, charged on the income tax payable
-  surcharge: [
-    { upTo: 40000000, rate: 0 }, // up to ৳4 crore
-    { upTo: 100000000, rate: 0.1 }, // ৳4–10 crore
-    { upTo: 200000000, rate: 0.2 }, // ৳10–20 crore
-    { upTo: 500000000, rate: 0.3 }, // ৳20–50 crore (Paripatra 2025–26: 30%)
-    { upTo: Infinity, rate: 0.35 }, // above ৳50 crore
-  ],
-
-  // Filing-time adjustment by quarter: early filing earns a rebate, late filing
-  // adds tax. Applied to the assessed tax. "lower"/"higher" picks between pct×tax
-  // and the fixed bound.
-  // NOTE: this is ILLUSTRATIVE and NOT a statutory NBR provision — the Paripatra
-  // 2025–26 has no quarterly filing rebate/fee. Real late filing incurs simple
-  // interest under §174. The UI flags it as non-statutory; keep that flag if kept.
-  filing: {
-    q1: { sign: -1, pct: 0.05, bound: 25000, mode: "lower" }, // Jul–Sep
-    q2: { sign: 0, pct: 0, bound: 0, mode: "none" }, // Oct–Dec
-    q3: { sign: 1, pct: 0.02, bound: 3000, mode: "higher" }, // Jan–Mar
-    q4: { sign: 1, pct: 0.05, bound: 5000, mode: "higher" }, // Apr–Jun
-  },
-};
+// Taxpayer categories and filing quarters are shared across years.
+export const CATEGORIES = [
+  { key: "general", label: "General" },
+  { key: "womenSenior", label: "Woman / 65+" },
+  { key: "disabledThirdGender", label: "Disability / third gender" },
+  { key: "freedomFighter", label: "Freedom fighter" },
+];
 
 export const FILING_QUARTERS = [
   { key: "q1", label: "Jul–Sep" },
@@ -73,12 +24,94 @@ export const FILING_QUARTERS = [
   { key: "q4", label: "Apr–Jun" },
 ];
 
-export const CATEGORIES = [
-  { key: "general", label: "General" },
-  { key: "womenSenior", label: "Woman / 65+" },
-  { key: "disabledThirdGender", label: "Disability / third gender" },
-  { key: "freedomFighter", label: "Freedom fighter" },
+// Illustrative filing-time adjustment — NOT a statutory NBR provision (the UI
+// flags it). Shared across years. "lower"/"higher" picks pct×tax vs the bound.
+const FILING = {
+  q1: { sign: -1, pct: 0.05, bound: 25000, mode: "lower" }, // Jul–Sep
+  q2: { sign: 0, pct: 0, bound: 0, mode: "none" }, // Oct–Dec
+  q3: { sign: 1, pct: 0.02, bound: 3000, mode: "higher" }, // Jan–Mar
+  q4: { sign: 1, pct: 0.05, bound: 5000, mode: "higher" }, // Apr–Jun
+};
+
+// Net-wealth surcharge tiers (Paripatra 2025–26): 0 / 10 / 20 / 30 / 35%.
+const SURCHARGE = [
+  { upTo: 40000000, rate: 0 }, // up to ৳4 crore
+  { upTo: 100000000, rate: 0.1 }, // ৳4–10 crore
+  { upTo: 200000000, rate: 0.2 }, // ৳10–20 crore
+  { upTo: 500000000, rate: 0.3 }, // ৳20–50 crore
+  { upTo: Infinity, rate: 0.35 }, // above ৳50 crore
 ];
+
+// AY 2026–27 (income year 2025–26) — Paripatra 2025–26, Section 1.
+const AY2026 = {
+  ayStart: 2026,
+  thresholds: {
+    general: 375000,
+    womenSenior: 425000, // women, and anyone aged 65+
+    disabledThirdGender: 500000, // persons with disability / third gender
+    freedomFighter: 525000, // gazetted war-wounded FF & "July Warriors 2024"
+  },
+  disabledChildBonus: 50000,
+  // Finance Ordinance 2025 raised the salaried exemption cap to ৳5,00,000.
+  employmentExemption: { fraction: 1 / 3, cap: 500000 },
+  slabs: [
+    { width: 300000, rate: 0.1 },
+    { width: 400000, rate: 0.15 },
+    { width: 500000, rate: 0.2 },
+    { width: 2000000, rate: 0.25 },
+    { width: Infinity, rate: 0.3 },
+  ],
+  // Flat ৳5,000 (৳1,000 for new taxpayers); AY 2026–27 dropped the old
+  // location-based ৳5,000/4,000/3,000 split.
+  minTax: { regular: 5000, newTaxpayer: 1000 },
+  rebate: { rate: 0.1, incomeCapPct: 0.03, absoluteCap: 750000 },
+  surcharge: SURCHARGE,
+  filing: FILING,
+};
+
+// AY 2025–26 (income year 2024–25) — Paripatra 2025–26, Section 2.
+// Note the extra 5% band and the lower thresholds vs AY 2026–27.
+const AY2025 = {
+  ayStart: 2025,
+  thresholds: {
+    general: 350000,
+    womenSenior: 400000,
+    disabledThirdGender: 475000,
+    freedomFighter: 500000,
+  },
+  disabledChildBonus: 50000,
+  employmentExemption: { fraction: 1 / 3, cap: 450000 },
+  slabs: [
+    { width: 100000, rate: 0.05 },
+    { width: 400000, rate: 0.1 },
+    { width: 500000, rate: 0.15 },
+    { width: 500000, rate: 0.2 },
+    { width: 2000000, rate: 0.25 },
+    { width: Infinity, rate: 0.3 },
+  ],
+  // Location-based ৳5,000/4,000/3,000 (we model the ৳5,000 city-corp figure);
+  // no new-taxpayer reduction this year.
+  minTax: { regular: 5000, newTaxpayer: 5000 },
+  rebate: { rate: 0.1, incomeCapPct: 0.03, absoluteCap: 750000 },
+  surcharge: SURCHARGE,
+  filing: FILING,
+};
+
+export const RULES_BY_YEAR = { 2025: AY2025, 2026: AY2026 };
+
+// Default rate set (latest). compute() uses this when no `rules` is passed.
+export const RULES = AY2026;
+export const LATEST_RATES_YEAR = 2026;
+
+// Assessment years offered in the UI, newest first.
+export const ASSESSMENT_YEARS = [
+  { ayStart: 2026, label: "AY 2026–27" },
+  { ayStart: 2025, label: "AY 2025–26" },
+];
+
+export function rulesForYear(ayStart) {
+  return RULES_BY_YEAR[ayStart] ?? RULES;
+}
 
 /**
  * Bangladesh's income year runs 1 July – 30 June; the assessment year follows it.
