@@ -90,3 +90,7 @@ In development, if the displayed assessment year moves past `ratesAssessmentYear
   to the single taxable-income figure entered.
 - The filing-quarter adjustment is applied *after* the net-wealth surcharge; confirm
   whether "tax payable" in the act means before or after surcharge.
+
+## Roadmap
+
+Planned and deferred work lives in [ROADMAP.md](ROADMAP.md).
