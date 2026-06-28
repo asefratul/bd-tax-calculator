@@ -1,6 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { compute } from "../tax/compute.js";
 import { trackEvent, incomeBand } from "../analytics.js";
+import { readShareParams, buildShareUrl } from "../share.js";
+
+// Inputs decoded from the URL once at load, so a shared link restores the state.
+const SHARED = readShareParams();
 import {
   RULES,
   RULES_BY_YEAR,
@@ -35,19 +39,20 @@ function filingHint(key) {
 }
 
 export default function BDTaxCalculator() {
-  const [income, setIncome] = useState(900000);
-  const [incomeMode, setIncomeMode] = useState("taxable");
-  const [category, setCategory] = useState("general");
-  const [disabledChild, setDisabledChild] = useState(false);
-  const [newTaxpayer, setNewTaxpayer] = useState(false);
-  const [otherIncome, setOtherIncome] = useState("");
-  const [investment, setInvestment] = useState("");
-  const [ait, setAit] = useState("");
-  const [otherAit, setOtherAit] = useState("");
-  const [filingQuarter, setFilingQuarter] = useState("q2");
+  const [income, setIncome] = useState(SHARED.income ?? 900000);
+  const [incomeMode, setIncomeMode] = useState(SHARED.incomeMode ?? "taxable");
+  const [category, setCategory] = useState(SHARED.category ?? "general");
+  const [disabledChild, setDisabledChild] = useState(SHARED.disabledChild ?? false);
+  const [newTaxpayer, setNewTaxpayer] = useState(SHARED.newTaxpayer ?? false);
+  const [otherIncome, setOtherIncome] = useState(SHARED.otherIncome ?? "");
+  const [investment, setInvestment] = useState(SHARED.investment ?? "");
+  const [ait, setAit] = useState(SHARED.ait ?? "");
+  const [otherAit, setOtherAit] = useState(SHARED.otherAit ?? "");
+  const [filingQuarter, setFilingQuarter] = useState(SHARED.filingQuarter ?? "q2");
   const [advanced, setAdvanced] = useState(false);
-  const [netWealth, setNetWealth] = useState(0);
-  const [ayStart, setAyStart] = useState(LATEST_RATES_YEAR);
+  const [netWealth, setNetWealth] = useState(SHARED.netWealth ?? 0);
+  const [ayStart, setAyStart] = useState(SHARED.ayStart ?? LATEST_RATES_YEAR);
+  const [copied, setCopied] = useState(false);
 
   const incVal = Number(income) || 0;
 
@@ -80,6 +85,27 @@ export default function BDTaxCalculator() {
     () => compute({ ...inputs, rules: RULES_BY_YEAR[compareYear.ayStart] }),
     [inputs, compareYear]
   );
+
+  // Keep the URL in sync with the inputs so the result is shareable/bookmarkable.
+  const shareState = {
+    ayStart, incomeMode, income, otherIncome, category, disabledChild,
+    newTaxpayer, investment, ait, otherAit, filingQuarter, netWealth,
+  };
+  useEffect(() => {
+    window.history.replaceState(null, "", buildShareUrl(shareState));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ayStart, incomeMode, income, otherIncome, category, disabledChild, newTaxpayer, investment, ait, otherAit, filingQuarter, netWealth]);
+
+  const copyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(buildShareUrl(shareState));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+      trackEvent("share", { action: "copy_link" });
+    } catch {
+      /* clipboard blocked — ignore */
+    }
+  };
 
   // The slab bar visualises the resolved taxable income (post-exemption in gross mode).
   const segW = (amt) => (r.taxableIncome > 0 ? (amt / r.taxableIncome) * 100 : 0);
@@ -172,9 +198,9 @@ export default function BDTaxCalculator() {
           </div>
         )}
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2 print:grid-cols-1">
           {/* INPUTS */}
-          <section className="rounded-xl p-4" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+          <section className="rounded-xl p-4 print:hidden" style={{ background: C.card, border: `1px solid ${C.line}` }}>
             <h2 style={{ color: C.muted }} className="mb-3 text-xs font-semibold uppercase tracking-wide">
               Your details
             </h2>
@@ -422,9 +448,30 @@ export default function BDTaxCalculator() {
 
           {/* STATEMENT */}
           <section className="rounded-xl p-4" style={{ background: C.card, border: `1px solid ${C.line}` }}>
-            <h2 style={{ color: C.muted }} className="mb-1 text-xs font-semibold uppercase tracking-wide">
-              Estimated tax payable
-            </h2>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <h2 style={{ color: C.muted }} className="text-xs font-semibold uppercase tracking-wide">
+                Estimated tax payable
+              </h2>
+              <div className="flex gap-1.5 print:hidden">
+                <button
+                  onClick={copyShareLink}
+                  className="rounded-md px-2 py-1 text-xs transition-colors"
+                  style={{ border: `1px solid ${C.line}`, color: C.accent, background: "#fbfcfb" }}
+                >
+                  {copied ? "Copied ✓" : "Copy link"}
+                </button>
+                <button
+                  onClick={() => {
+                    trackEvent("share", { action: "print" });
+                    window.print();
+                  }}
+                  className="rounded-md px-2 py-1 text-xs transition-colors"
+                  style={{ border: `1px solid ${C.line}`, color: C.accent, background: "#fbfcfb" }}
+                >
+                  Print
+                </button>
+              </div>
+            </div>
             <div className="flex items-end gap-3">
               <div
                 className="text-4xl font-bold font-mono"
@@ -594,7 +641,9 @@ export default function BDTaxCalculator() {
           </section>
         </div>
 
-        <HowItWorks rules={selectedRules} />
+        <div className="print:hidden">
+          <HowItWorks rules={selectedRules} />
+        </div>
 
         <footer style={{ color: C.muted }} className="mx-auto mt-6 max-w-5xl text-xs leading-relaxed">
           Estimate based on the FY2026–27 budget. Figures are proposed until the Finance Act 2026 is gazetted —
