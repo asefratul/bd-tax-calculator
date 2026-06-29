@@ -1,7 +1,6 @@
 // Encode/decode the calculator inputs in the URL query string so a result can
 // be shared or bookmarked. Short keys keep the link tidy.
 const KEYS = {
-  ayStart: "ay",
   incomeMode: "m",
   income: "inc",
   otherIncome: "oi",
@@ -15,7 +14,7 @@ const KEYS = {
   netWealth: "nw",
 };
 
-const NUMERIC = new Set(["ayStart", "netWealth"]);
+const NUMERIC = new Set(["netWealth"]);
 const BOOLEAN = new Set(["disabledChild", "newTaxpayer"]);
 
 /** Parse inputs from a query string; only returns keys actually present. */
