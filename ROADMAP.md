@@ -17,17 +17,6 @@ full i18n pass last, so every string is translated once).
   category, filing quarter) and `role="switch"` / `aria-checked` to the toggles.
 - [ ] **"How it's calculated" + NBR sources.** An in-app explainer of the steps,
   with links to the relevant NBR Paripatra / Finance Act sections, to build trust.
-- [ ] **Assessment-year selector + year comparison.** Let users pick the assessment
-  year and compare last year vs this year. Rates are already isolated in
-  `src/tax/rules.js`, so this is mainly a per-year rate set + a selector.
-  Prior-year (AY 2025–26) rates from the NBR Paripatra 2025–26 (Section 2):
-  - Tax-free thresholds: woman/65+ ৳4,00,000 · disability/third-gender ৳4,75,000 ·
-    gazetted war-wounded freedom fighter ৳5,00,000.
-  - Minimum tax was **location-based**: ৳5,000 (Dhaka N/S + Chattogram city corp) /
-    ৳4,000 (other city corps) / ৳3,000 (other areas) — note AY 2026–27 flattened
-    this to ৳5,000 (৳1,000 for new taxpayers).
-  - Design note: this interacts with the date-driven `taxYearFor()` rollover and the
-    rates-drift banner — define how a manual year override behaves up front.
 - [ ] **Shareable / printable result.** A "Copy link" that encodes the inputs in the
   URL, and/or a clean print/PDF view of the statement.
 - [ ] **Bangla (বাংলা) i18n.** Full language toggle — labels, hints, and Taka
@@ -38,6 +27,11 @@ full i18n pass last, so every string is translated once).
 
 Parked deliberately — not scheduled yet.
 
+- **Assessment-year selector + previous-year comparison.** Was built and then pulled:
+  the prior-year (AY 2025–26) rate set needs more verification before it can ship —
+  the surcharge tiers, investment rebate, and location-based minimum tax
+  (৳5,000/4,000/3,000) for that year still need confirming against NBR sources.
+  Revisit once the AY 2025–26 numbers are fully verified.
 - **Investment rebate % and surcharge base.** The app uses a 10% rebate (৳7.5L cap)
   and includes minimum tax in the surcharge base. These may change (commonly cited:
   15% rebate; Paripatra says minimum tax is *not* a surcharge base from AY 2026–27),

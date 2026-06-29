@@ -57,8 +57,8 @@ function Band({ color, label, rate, amount, width, tax, active, taxFree }) {
  * The slab schedule for the selected taxpayer category, doubling as the per-slab
  * gross-tax breakdown. Updates live as category/income change.
  */
-export default function SlabSchedule({ categoryLabel, threshold, taxableIncome, grossTax }) {
-  const bands = buildSlabBands(threshold, taxableIncome);
+export default function SlabSchedule({ categoryLabel, threshold, taxableIncome, grossTax, slabs }) {
+  const bands = buildSlabBands(threshold, taxableIncome, slabs);
   const freeAmount = Math.min(taxableIncome, threshold);
 
   return (
@@ -85,7 +85,7 @@ export default function SlabSchedule({ categoryLabel, threshold, taxableIncome, 
       {bands.map((b, i) => (
         <Band
           key={i}
-          color={SLAB_COLORS[i]}
+          color={SLAB_COLORS[Math.min(i, SLAB_COLORS.length - 1)]}
           label={rangeLabel(b.start, b.end)}
           rate={b.rate}
           amount={b.amount}

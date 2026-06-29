@@ -1,8 +1,16 @@
+import { useId } from "react";
 import { C } from "../tax/theme.js";
 
 export default function Toggle({ label, sub, checked, onChange }) {
+  const id = useId();
+  const labelId = `${id}-label`;
+  const subId = `${id}-sub`;
   return (
     <button
+      role="switch"
+      aria-checked={checked}
+      aria-labelledby={labelId}
+      aria-describedby={sub ? subId : undefined}
       onClick={() => onChange(!checked)}
       className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left"
       style={{
@@ -11,11 +19,11 @@ export default function Toggle({ label, sub, checked, onChange }) {
       }}
     >
       <span>
-        <span style={{ color: C.ink }} className="block text-sm">
+        <span id={labelId} style={{ color: C.ink }} className="block text-sm">
           {label}
         </span>
         {sub && (
-          <span style={{ color: C.muted }} className="block text-xs">
+          <span id={subId} style={{ color: C.muted }} className="block text-xs">
             {sub}
           </span>
         )}

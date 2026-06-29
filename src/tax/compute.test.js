@@ -4,33 +4,33 @@ import { taxYearFor } from "./rules.js";
 
 describe("buildSlabBands", () => {
   it("returns all five bands with absolute ranges from the threshold", () => {
-    const bands = buildSlabBands(375000, 0);
+    const bands = buildSlabBands(400000, 0);
     expect(bands).toHaveLength(5);
-    expect(bands[0]).toMatchObject({ start: 375000, end: 675000, rate: 0.1 });
-    expect(bands[1]).toMatchObject({ start: 675000, end: 1075000, rate: 0.15 });
+    expect(bands[0]).toMatchObject({ start: 400000, end: 700000, rate: 0.1 });
+    expect(bands[1]).toMatchObject({ start: 700000, end: 1100000, rate: 0.15 });
     expect(bands[4].end).toBe(Infinity);
     expect(bands.every((b) => b.amount === 0 && b.tax === 0)).toBe(true);
   });
 
   it("fills only the bands the income reaches, matching compute's gross tax", () => {
-    const bands = buildSlabBands(375000, 700000); // 325k above threshold
+    const bands = buildSlabBands(400000, 725000); // 325k above threshold
     expect(bands[0]).toMatchObject({ amount: 300000, tax: 30000 }); // full first band
     expect(bands[1]).toMatchObject({ amount: 25000, tax: 3750 }); // partial second
     expect(bands[2].amount).toBe(0); // not reached
     const sum = bands.reduce((t, b) => t + b.tax, 0);
-    expect(sum).toBe(compute({ taxableIncome: 700000 }).grossTax);
+    expect(sum).toBe(compute({ taxableIncome: 725000 }).grossTax);
   });
 });
 
 describe("slabs & threshold", () => {
   it("charges nothing within the tax-free threshold", () => {
-    const r = compute({ taxableIncome: 375000 });
+    const r = compute({ taxableIncome: 400000 });
     expect(r.grossTax).toBe(0);
     expect(r.total).toBe(0); // min tax does NOT apply at/under threshold
   });
 
-  it("computes progressive slab tax (700k general → 33,750)", () => {
-    const r = compute({ taxableIncome: 700000 });
+  it("computes progressive slab tax (725k general → 33,750)", () => {
+    const r = compute({ taxableIncome: 725000 });
     // 300k @10% = 30,000 ; 25k @15% = 3,750
     expect(r.grossTax).toBe(33750);
     expect(r.breakdown).toHaveLength(2);
@@ -42,7 +42,7 @@ describe("slabs & threshold", () => {
 
   it("adds the disabled-child bonus to the threshold", () => {
     const r = compute({ taxableIncome: 425000, category: "general", disabledChild: true });
-    expect(r.threshold).toBe(425000); // 375,000 + 50,000
+    expect(r.threshold).toBe(450000); // 400,000 + 50,000
     expect(r.grossTax).toBe(0);
   });
 });
@@ -62,16 +62,16 @@ describe("gross-salary mode (employment exemption)", () => {
 
   it("derives taxable income and tax end to end from gross salary", () => {
     const r = compute({ incomeMode: "gross", grossSalary: 900000 });
-    // taxable 600,000 → 225,000 above the 375,000 threshold @10% = 22,500
+    // taxable 600,000 → 200,000 above the 400,000 threshold @10% = 20,000
     expect(r.taxableIncome).toBe(600000);
-    expect(r.grossTax).toBe(22500);
+    expect(r.grossTax).toBe(20000);
   });
 
   it("leaves taxable mode unchanged (no exemption applied)", () => {
-    const r = compute({ taxableIncome: 700000 });
+    const r = compute({ taxableIncome: 725000 });
     expect(r.incomeMode).toBe("taxable");
     expect(r.exemption).toBe(0);
-    expect(r.taxableIncome).toBe(700000);
+    expect(r.taxableIncome).toBe(725000);
     expect(r.grossTax).toBe(33750); // identical to the slab test
   });
 });
@@ -95,19 +95,19 @@ describe("investment rebate (lowest of three)", () => {
 
 describe("minimum tax floor", () => {
   it("applies the ৳5,000 floor once income exceeds the threshold", () => {
-    const r = compute({ taxableIncome: 380000 }); // 5,000 @10% = 500 gross
+    const r = compute({ taxableIncome: 405000 }); // 5,000 @10% = 500 gross
     expect(r.minApplied).toBe(true);
     expect(r.total).toBe(5000);
   });
 
   it("uses the ৳1,000 floor for new taxpayers", () => {
-    const r = compute({ taxableIncome: 380000, newTaxpayer: true });
+    const r = compute({ taxableIncome: 405000, newTaxpayer: true });
     expect(r.total).toBe(1000);
   });
 
   it("does not let the early-filing rebate pull tax below the floor", () => {
-    // 380k → 500 gross, floored to 5,000. A Q1 5% rebate (−250) must not breach it.
-    const r = compute({ taxableIncome: 380000, filingQuarter: "q1" });
+    // 405k → 500 gross, floored to 5,000. A Q1 5% rebate (−250) must not breach it.
+    const r = compute({ taxableIncome: 405000, filingQuarter: "q1" });
     expect(r.total).toBe(5000);
     expect(r.totalDue).toBe(5000);
     expect(r.filingAdj).toBe(0);
@@ -115,7 +115,7 @@ describe("minimum tax floor", () => {
 });
 
 describe("filing-quarter adjustment", () => {
-  const income = 1075000; // gross tax = 30,000 + 60,000 = 90,000 (no rebate)
+  const income = 1100000; // gross tax = 30,000 + 60,000 = 90,000 (no rebate)
 
   it("Q1 gives a 5% early-filing rebate", () => {
     const r = compute({ taxableIncome: income, filingQuarter: "q1" });
@@ -145,11 +145,11 @@ describe("filing-quarter adjustment", () => {
 
 describe("other (non-salary) income", () => {
   it("adds other income to the taxable base and taxes it at slab rates", () => {
-    const r = compute({ taxableIncome: 700000, otherIncome: 200000 });
-    expect(r.baseTaxable).toBe(700000);
+    const r = compute({ taxableIncome: 725000, otherIncome: 200000 });
+    expect(r.baseTaxable).toBe(725000);
     expect(r.otherIncome).toBe(200000);
-    expect(r.taxableIncome).toBe(900000);
-    // 900k → 525k above threshold: 300k@10% + 225k@15% = 63,750
+    expect(r.taxableIncome).toBe(925000);
+    // 925k → 525k above threshold: 300k@10% + 225k@15% = 63,750
     expect(r.grossTax).toBe(63750);
   });
 
@@ -157,20 +157,21 @@ describe("other (non-salary) income", () => {
     const r = compute({ incomeMode: "gross", grossSalary: 900000, otherIncome: 100000 });
     expect(r.baseTaxable).toBe(600000); // 900k − 300k exemption
     expect(r.taxableIncome).toBe(700000); // + 100k other
-    expect(r.grossTax).toBe(33750);
+    // 700k → 300k above the 400k threshold @10% = 30,000
+    expect(r.grossTax).toBe(30000);
   });
 });
 
 describe("non-refundable other AIT (e.g. car AIT)", () => {
   it("offsets the liability but is not refunded when it exceeds it", () => {
-    const r = compute({ taxableIncome: 700000, otherAit: 40000 }); // due 33,750
+    const r = compute({ taxableIncome: 725000, otherAit: 40000 }); // due 33,750
     expect(r.refund).toBe(false);
     expect(r.net).toBe(0); // wiped to zero, not negative
     expect(r.forfeited).toBe(6250); // 40,000 − 33,750 lost
   });
 
   it("combines with refundable salary AIT, which can still produce a refund", () => {
-    const r = compute({ taxableIncome: 700000, ait: 10000, otherAit: 30000 });
+    const r = compute({ taxableIncome: 725000, ait: 10000, otherAit: 30000 });
     // 33,750 − 30,000 (non-refundable) = 3,750 remaining; − 10,000 salary AIT = −6,250
     expect(r.refund).toBe(true);
     expect(r.net).toBe(-6250);
@@ -180,13 +181,13 @@ describe("non-refundable other AIT (e.g. car AIT)", () => {
 
 describe("AIT crediting", () => {
   it("produces a refund when AIT exceeds the liability", () => {
-    const r = compute({ taxableIncome: 700000, ait: 40000 }); // due 33,750
+    const r = compute({ taxableIncome: 725000, ait: 40000 }); // due 33,750
     expect(r.refund).toBe(true);
     expect(Math.round(Math.abs(r.net))).toBe(6250);
   });
 
   it("leaves a net payable when AIT is short", () => {
-    const r = compute({ taxableIncome: 700000, ait: 10000 });
+    const r = compute({ taxableIncome: 725000, ait: 10000 });
     expect(r.refund).toBe(false);
     expect(r.net).toBe(23750);
   });

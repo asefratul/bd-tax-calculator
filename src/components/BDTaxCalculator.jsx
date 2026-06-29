@@ -8,6 +8,7 @@ import MoneyField from "./MoneyField.jsx";
 import Toggle from "./Toggle.jsx";
 import ReceiptRow from "./ReceiptRow.jsx";
 import SlabSchedule from "./SlabSchedule.jsx";
+import HowItWorks from "./HowItWorks.jsx";
 
 const INCOME_MODES = [
   { key: "taxable", label: "Taxable income" },
@@ -41,24 +42,25 @@ export default function BDTaxCalculator() {
 
   const incVal = Number(income) || 0;
 
-  const r = useMemo(
-    () =>
-      compute({
-        incomeMode,
-        grossSalary: incomeMode === "gross" ? incVal : 0,
-        taxableIncome: incomeMode === "taxable" ? incVal : 0,
-        otherIncome: Number(otherIncome) || 0,
-        category,
-        disabledChild,
-        newTaxpayer,
-        investment: Number(investment) || 0,
-        netWealth: Number(netWealth) || 0,
-        ait: Number(ait) || 0,
-        otherAit: Number(otherAit) || 0,
-        filingQuarter,
-      }),
+  const inputs = useMemo(
+    () => ({
+      incomeMode,
+      grossSalary: incomeMode === "gross" ? incVal : 0,
+      taxableIncome: incomeMode === "taxable" ? incVal : 0,
+      otherIncome: Number(otherIncome) || 0,
+      category,
+      disabledChild,
+      newTaxpayer,
+      investment: Number(investment) || 0,
+      netWealth: Number(netWealth) || 0,
+      ait: Number(ait) || 0,
+      otherAit: Number(otherAit) || 0,
+      filingQuarter,
+    }),
     [incomeMode, incVal, otherIncome, category, disabledChild, newTaxpayer, investment, netWealth, ait, otherAit, filingQuarter]
   );
+
+  const r = useMemo(() => compute(inputs), [inputs]);
 
   // The slab bar visualises the resolved taxable income (post-exemption in gross mode).
   const segW = (amt) => (r.taxableIncome > 0 ? (amt / r.taxableIncome) * 100 : 0);
@@ -150,9 +152,9 @@ export default function BDTaxCalculator() {
           </div>
         )}
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2 print:grid-cols-1">
           {/* INPUTS */}
-          <section className="rounded-xl p-4" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+          <section className="rounded-xl p-4 print:hidden" style={{ background: C.card, border: `1px solid ${C.line}` }}>
             <h2 style={{ color: C.muted }} className="mb-3 text-xs font-semibold uppercase tracking-wide">
               Your details
             </h2>
@@ -167,6 +169,7 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={m.key}
+                      aria-pressed={on}
                       onClick={() => {
                         setIncomeMode(m.key);
                         trackEvent("income_mode", { mode: m.key });
@@ -220,6 +223,7 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={c.key}
+                      aria-pressed={on}
                       onClick={() => {
                         setCategory(c.key);
                         trackEvent("taxpayer_category", { category: c.key });
@@ -254,7 +258,13 @@ export default function BDTaxCalculator() {
               />
               <Toggle
                 label="First-time taxpayer"
-                sub="Minimum tax floor of ৳1,000 instead of ৳5,000"
+                sub={
+                  RULES.minTax.newTaxpayer < RULES.minTax.regular
+                    ? `Minimum tax floor of ${taka(RULES.minTax.newTaxpayer)} instead of ${taka(
+                        RULES.minTax.regular
+                      )}`
+                    : "No reduced minimum-tax floor this year"
+                }
                 checked={newTaxpayer}
                 onChange={(v) => {
                   setNewTaxpayer(v);
@@ -307,6 +317,7 @@ export default function BDTaxCalculator() {
                   return (
                     <button
                       key={q.key}
+                      aria-pressed={on}
                       onClick={() => {
                         setFilingQuarter(q.key);
                         trackEvent("filing_quarter", { quarter: q.key });
@@ -361,9 +372,23 @@ export default function BDTaxCalculator() {
 
           {/* STATEMENT */}
           <section className="rounded-xl p-4" style={{ background: C.card, border: `1px solid ${C.line}` }}>
-            <h2 style={{ color: C.muted }} className="mb-1 text-xs font-semibold uppercase tracking-wide">
-              Estimated tax payable
-            </h2>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <h2 style={{ color: C.muted }} className="text-xs font-semibold uppercase tracking-wide">
+                Estimated tax payable
+              </h2>
+              <div className="flex gap-1.5 print:hidden">
+                <button
+                  onClick={() => {
+                    trackEvent("share", { action: "print" });
+                    window.print();
+                  }}
+                  className="rounded-md px-2 py-1 text-xs transition-colors"
+                  style={{ border: `1px solid ${C.line}`, color: C.accent, background: "#fbfcfb" }}
+                >
+                  Print
+                </button>
+              </div>
+            </div>
             <div className="flex items-end gap-3">
               <div
                 className="text-4xl font-bold font-mono"
@@ -422,7 +447,22 @@ export default function BDTaxCalculator() {
               />
 
               <div className="mt-2">
-                {r.rebate > 0 && <ReceiptRow label="Investment rebate" value={r.rebate} color={C.accent} neg />}
+                {r.rebate > 0 && (
+                  <>
+                    <ReceiptRow
+                      label={r.rebateUncapped > r.rebate ? "Investment rebate (capped at gross tax)" : "Investment rebate"}
+                      value={r.rebate}
+                      color={C.accent}
+                      neg
+                    />
+                    {r.rebateUncapped > r.rebate && (
+                      <p style={{ color: C.muted }} className="mt-0.5 mb-1 text-xs">
+                        Formula gives {taka(r.rebateUncapped)}, but a rebate can't exceed your tax — so it's
+                        limited to the {taka(r.grossTax)} gross tax.
+                      </p>
+                    )}
+                  </>
+                )}
                 {r.minApplied && <ReceiptRow label="Minimum tax floor applied" value={r.floor} color={C.due} />}
                 {r.surcharge > 0 && (
                   <ReceiptRow
@@ -504,12 +544,16 @@ export default function BDTaxCalculator() {
 
               {r.minApplied && (
                 <p style={{ color: C.muted }} className="mt-2 text-xs">
-                  Slab tax came to {taka(r.afterRebate)}; since income exceeds the threshold, the{" "}
-                  {taka(r.floor)} minimum applies.
+                  Tax after rebate came to {taka(r.afterRebate)}; since income exceeds the threshold,
+                  the {taka(r.floor)} minimum applies.
                 </p>
               )}
             </div>
           </section>
+        </div>
+
+        <div className="print:hidden">
+          <HowItWorks />
         </div>
 
         <footer style={{ color: C.muted }} className="mx-auto mt-6 max-w-5xl text-xs leading-relaxed">
