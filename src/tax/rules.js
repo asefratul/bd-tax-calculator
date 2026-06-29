@@ -13,7 +13,7 @@ export const RULES = {
 
   // Tax-free threshold by taxpayer category (৳)
   thresholds: {
-    general: 400000, // proposed: raised from ৳3,75,000 (Paripatra 2025–26)
+    general: 375000,
     womenSenior: 425000, // women, and anyone aged 65+
     disabledThirdGender: 500000, // persons with disability / third gender
     freedomFighter: 525000, // gazetted war-wounded FF & "July Warriors 2024"
