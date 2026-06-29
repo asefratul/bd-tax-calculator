@@ -150,6 +150,7 @@ export function compute({
     grossTax,
     rebateByIncome,
     rebateByInvestment,
+    rebateUncapped,
     rebate,
     afterRebate,
     floor,

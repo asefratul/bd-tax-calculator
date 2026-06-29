@@ -447,7 +447,22 @@ export default function BDTaxCalculator() {
               />
 
               <div className="mt-2">
-                {r.rebate > 0 && <ReceiptRow label="Investment rebate" value={r.rebate} color={C.accent} neg />}
+                {r.rebate > 0 && (
+                  <>
+                    <ReceiptRow
+                      label={r.rebateUncapped > r.rebate ? "Investment rebate (capped at gross tax)" : "Investment rebate"}
+                      value={r.rebate}
+                      color={C.accent}
+                      neg
+                    />
+                    {r.rebateUncapped > r.rebate && (
+                      <p style={{ color: C.muted }} className="mt-0.5 mb-1 text-xs">
+                        Formula gives {taka(r.rebateUncapped)}, but a rebate can't exceed your tax — so it's
+                        limited to the {taka(r.grossTax)} gross tax.
+                      </p>
+                    )}
+                  </>
+                )}
                 {r.minApplied && <ReceiptRow label="Minimum tax floor applied" value={r.floor} color={C.due} />}
                 {r.surcharge > 0 && (
                   <ReceiptRow
