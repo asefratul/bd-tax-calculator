@@ -33,7 +33,10 @@ export function readShareParams(search = window.location.search) {
 
 /** Build a shareable absolute URL for the given input state. */
 export function buildShareUrl(state) {
-  const p = new URLSearchParams();
+  // Start from the current query so unrelated params (e.g. utm_*) survive; only
+  // our own keys are rewritten.
+  const p = new URLSearchParams(window.location.search);
+  for (const short of Object.values(KEYS)) p.delete(short);
   for (const [key, short] of Object.entries(KEYS)) {
     const v = state[key];
     if (BOOLEAN.has(key)) {
@@ -43,7 +46,7 @@ export function buildShareUrl(state) {
     if (v === "" || v == null) continue;
     p.set(short, String(v));
   }
-  const { origin, pathname } = window.location;
+  const { origin, pathname, hash } = window.location;
   const qs = p.toString();
-  return qs ? `${origin}${pathname}?${qs}` : `${origin}${pathname}`;
+  return qs ? `${origin}${pathname}?${qs}${hash}` : `${origin}${pathname}${hash}`;
 }

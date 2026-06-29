@@ -2,6 +2,7 @@ import { C } from "../tax/theme.js";
 import { RULES } from "../tax/rules.js";
 import { taka } from "../tax/format.js";
 
+/** One numbered step row in the explainer (badge + bold title + body). */
 const Step = ({ n, title, children }) => (
   <li className="mb-2.5 flex gap-2">
     <span
@@ -19,10 +20,16 @@ const Step = ({ n, title, children }) => (
 /**
  * Collapsible explainer of the calculation steps, with links to the NBR sources.
  * Uses a native <details> so it stays keyboard-accessible without extra JS.
+ * Every figure is derived from `rules` so the prose can't drift from compute().
  */
 export default function HowItWorks({ rules = RULES }) {
   const { employmentExemption: ex, rebate, minTax } = rules;
   const pct = (x) => `${Math.round(x * 100)}%`;
+  const slabRates = rules.slabs.map(({ rate }) => pct(rate)).join(" / ");
+  const fractionLabel = `1/${Math.round(1 / ex.fraction)}`;
+  const firstSurchargeIdx = rules.surcharge.findIndex((t) => t.rate > 0);
+  const surchargeStartsAt =
+    firstSurchargeIdx > 0 ? rules.surcharge[firstSurchargeIdx - 1].upTo : null;
 
   return (
     <details
@@ -38,12 +45,12 @@ export default function HowItWorks({ rules = RULES }) {
 
       <ol className="mt-3 list-none p-0">
         <Step n="1" title="Income basis.">
-          In gross-salary mode the salaried employment exemption — the lower of one-third of
+          In gross-salary mode the salaried employment exemption — the lower of {fractionLabel} of
           salary and {taka(ex.cap)} — is removed first; the remainder is your taxable income.
           Non-salary income (rent, interest) is added on top.
         </Step>
         <Step n="2" title="Progressive slabs.">
-          Income above your category's tax-free threshold is taxed in bands at 10 / 15 / 20 / 25 / 30%.
+          Income above your category's tax-free threshold is taxed in bands at {slabRates}.
         </Step>
         <Step n="3" title="Investment rebate (Section 78).">
           The lowest of {pct(rebate.rate)} of your eligible investment, {pct(rebate.incomeCapPct)} of
@@ -60,9 +67,10 @@ export default function HowItWorks({ rules = RULES }) {
       </ol>
 
       <p style={{ color: C.muted }} className="mt-1 text-xs leading-relaxed">
-        The net-wealth surcharge applies above ৳4 crore. The filing-quarter adjustment is
-        illustrative and not an NBR rule. Figures follow the FY2026–27 budget and remain proposed
-        until the Finance Act is gazetted — this is not tax advice.
+        {surchargeStartsAt != null &&
+          `The net-wealth surcharge applies above ${taka(surchargeStartsAt)}. `}
+        The filing-quarter adjustment is illustrative and not an NBR rule. Figures follow the
+        FY2026–27 budget and remain proposed until the Finance Act is gazetted — this is not tax advice.
       </p>
 
       <p style={{ color: C.muted }} className="mt-2 text-xs">
