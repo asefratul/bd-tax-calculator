@@ -27,6 +27,9 @@ full i18n pass last, so every string is translated once).
 
 Parked deliberately — not scheduled yet.
 
+- **Raise the general tax-free threshold to ৳4,00,000.** Built then reverted — this
+  was only *speculated* (not in the Paripatra, not gazetted). The default stays at the
+  official ৳3,75,000. Re-apply (one-liner in `rules.js`) once a real source confirms it.
 - **Assessment-year selector + previous-year comparison.** Was built and then pulled:
   the prior-year (AY 2025–26) rate set needs more verification before it can ship —
   the surcharge tiers, investment rebate, and location-based minimum tax
