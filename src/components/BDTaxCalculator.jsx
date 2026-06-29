@@ -1,10 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { compute } from "../tax/compute.js";
 import { trackEvent, incomeBand } from "../analytics.js";
-import { readShareParams, buildShareUrl } from "../share.js";
-
-// Inputs decoded from the URL once at load, so a shared link restores the state.
-const SHARED = readShareParams();
 import { RULES, FILING_QUARTERS, CATEGORIES, taxYearFor } from "../tax/rules.js";
 import { C, SLAB_COLORS, FREE_COLOR } from "../tax/theme.js";
 import { taka } from "../tax/format.js";
@@ -31,19 +27,18 @@ function filingHint(key) {
 }
 
 export default function BDTaxCalculator() {
-  const [income, setIncome] = useState(SHARED.income ?? 900000);
-  const [incomeMode, setIncomeMode] = useState(SHARED.incomeMode ?? "taxable");
-  const [category, setCategory] = useState(SHARED.category ?? "general");
-  const [disabledChild, setDisabledChild] = useState(SHARED.disabledChild ?? false);
-  const [newTaxpayer, setNewTaxpayer] = useState(SHARED.newTaxpayer ?? false);
-  const [otherIncome, setOtherIncome] = useState(SHARED.otherIncome ?? "");
-  const [investment, setInvestment] = useState(SHARED.investment ?? "");
-  const [ait, setAit] = useState(SHARED.ait ?? "");
-  const [otherAit, setOtherAit] = useState(SHARED.otherAit ?? "");
-  const [filingQuarter, setFilingQuarter] = useState(SHARED.filingQuarter ?? "q2");
+  const [income, setIncome] = useState(900000);
+  const [incomeMode, setIncomeMode] = useState("taxable");
+  const [category, setCategory] = useState("general");
+  const [disabledChild, setDisabledChild] = useState(false);
+  const [newTaxpayer, setNewTaxpayer] = useState(false);
+  const [otherIncome, setOtherIncome] = useState("");
+  const [investment, setInvestment] = useState("");
+  const [ait, setAit] = useState("");
+  const [otherAit, setOtherAit] = useState("");
+  const [filingQuarter, setFilingQuarter] = useState("q2");
   const [advanced, setAdvanced] = useState(false);
-  const [netWealth, setNetWealth] = useState(SHARED.netWealth ?? 0);
-  const [copied, setCopied] = useState(false);
+  const [netWealth, setNetWealth] = useState(0);
 
   const incVal = Number(income) || 0;
 
@@ -66,27 +61,6 @@ export default function BDTaxCalculator() {
   );
 
   const r = useMemo(() => compute(inputs), [inputs]);
-
-  // Keep the URL in sync with the inputs so the result is shareable/bookmarkable.
-  const shareState = {
-    incomeMode, income, otherIncome, category, disabledChild,
-    newTaxpayer, investment, ait, otherAit, filingQuarter, netWealth,
-  };
-  useEffect(() => {
-    window.history.replaceState(null, "", buildShareUrl(shareState));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incomeMode, income, otherIncome, category, disabledChild, newTaxpayer, investment, ait, otherAit, filingQuarter, netWealth]);
-
-  const copyShareLink = async () => {
-    try {
-      await navigator.clipboard.writeText(buildShareUrl(shareState));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-      trackEvent("share", { action: "copy_link" });
-    } catch {
-      /* clipboard blocked — ignore */
-    }
-  };
 
   // The slab bar visualises the resolved taxable income (post-exemption in gross mode).
   const segW = (amt) => (r.taxableIncome > 0 ? (amt / r.taxableIncome) * 100 : 0);
@@ -403,13 +377,6 @@ export default function BDTaxCalculator() {
                 Estimated tax payable
               </h2>
               <div className="flex gap-1.5 print:hidden">
-                <button
-                  onClick={copyShareLink}
-                  className="rounded-md px-2 py-1 text-xs transition-colors"
-                  style={{ border: `1px solid ${C.line}`, color: C.accent, background: "#fbfcfb" }}
-                >
-                  {copied ? "Copied ✓" : "Copy link"}
-                </button>
                 <button
                   onClick={() => {
                     trackEvent("share", { action: "print" });
